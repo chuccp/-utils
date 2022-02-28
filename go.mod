@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/magiconair/properties v1.8.6
 	github.com/yusufpapurcu/wmi v1.2.2
+	golang.org/x/text v0.3.7
 )
 
 require (

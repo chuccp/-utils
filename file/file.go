@@ -3,11 +3,12 @@ package file
 import (
 	"bufio"
 	"errors"
-	"github.com/yusufpapurcu/wmi"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -115,31 +116,31 @@ func (f *File) Truncate() error {
 		return err
 	}
 }
-func (f *File) Read() ([]byte,bool, error) {
-	flag,err := f.Exists()
-	if !flag{
+func (f *File) Read() ([]byte, bool, error) {
+	flag, err := f.Exists()
+	if !flag {
 		return nil, false, err
 	}
 	var allData = make([]byte, 0)
 	var reader = bufio.NewReader(f.file)
 	for {
-		data:=make([]byte,1024)
+		data := make([]byte, 1024)
 		num, err := reader.Read(data)
 
-		if err!=nil{
-			if strings.Contains(err.Error(),"EOF"){
+		if err != nil {
+			if strings.Contains(err.Error(), "EOF") {
 				break
 			}
-			return nil,true,err
+			return nil, true, err
 		}
-		if num==0{
+		if num == 0 {
 			break
 		}
-		if err==nil{
+		if err == nil {
 			allData = append(allData, data[0:num]...)
 		}
 	}
-	return allData, true,nil
+	return allData, true, nil
 }
 
 func (f *File) WriteBytes(data []byte) error {
@@ -207,7 +208,7 @@ func NewFile(path string) (*File, error) {
 	}
 	fileInfo, err := os.Stat(normal)
 	if err != nil {
-		if strings.Contains(err.Error(), "cannot find the file")|| strings.Contains(err.Error(), "cannot find the path"){
+		if strings.Contains(err.Error(), "cannot find the file") || strings.Contains(err.Error(), "cannot find the path") {
 			return &File{normal: normal}, nil
 		}
 		return nil, err
@@ -229,19 +230,49 @@ type storageInfo struct {
 }
 
 func getWindowsRootPath() ([]*File, error) {
-	var storageInfo []storageInfo
-	err := wmi.Query("Select * from Win32_LogicalDisk", &storageInfo)
+	 storageInfos,err := logicalDisk()
+	 if err!=nil{
+	 	return nil, err
+	 }
 	files := make([]*File, 0)
+	for _, v := range storageInfos {
+		f, err := NewFile(v.Name + (string)(filepath.Separator))
+		if err == nil {
+			files = append(files, f)
+		}
+	}
+
+	return files, err
+}
+
+func logicalDisk() (storageInfos []*storageInfo, err error) {
+	storageInfos = make([]*storageInfo, 0)
+	cmd := exec.Command("wmic", "logicaldisk", "get", "DeviceID,FreeSpace,Size,DriveType")
+	stdout, err1 := cmd.StdoutPipe()
+	if err1 != nil {
+		return storageInfos, err
+	}
+	err = cmd.Start()
 	if err == nil {
-		for _, v := range storageInfo {
-			f, err := NewFile(v.Name + (string)(filepath.Separator))
-			if err == nil {
-				files = append(files, f)
+		scanner := bufio.NewScanner(stdout)
+		scanner.Scan()
+		scanner.Text()
+		for scanner.Scan() {
+			text := scanner.Text()
+			values := strings.Fields(text)
+			if len(values) == 4 {
+				var si storageInfo
+				si.Name = values[0]
+				si.Size, _ = strconv.ParseUint(values[3], 10, 64)
+				si.FreeSpace, _ = strconv.ParseUint(values[2], 10, 64)
+				si.FileSystem = values[1]
+				storageInfos = append(storageInfos, &si)
 			}
 		}
 	}
-	return files, err
+	return storageInfos, err
 }
+
 func getOtherRootPath() ([]*File, error) {
 	dirs, err := os.ReadDir("/")
 	if err == nil {

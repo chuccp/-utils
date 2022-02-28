@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"io"
 )
-
+func ReadAll(read io.Reader)([]byte, error){
+	return io.ReadAll(read)
+}
 type ReadStream struct {
 	read_ *bufio.Reader
 }
