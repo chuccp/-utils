@@ -1,4 +1,4 @@
-package coke_log
+package log
 
 import (
 	"os"
