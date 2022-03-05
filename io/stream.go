@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"net"
 )
 func ReadAll(read io.Reader)([]byte, error){
 	return io.ReadAll(read)
@@ -82,4 +83,34 @@ func (stream *WriteStream) Write(data []byte) (int, error) {
 }
 func (stream *WriteStream) Flush() error {
 	return stream.write_.Flush()
+}
+type NetStream struct {
+	*net.TCPConn
+	*ReadStream
+	*WriteStream
+	isManualClose bool
+}
+
+func NewIOStream(cnn *net.TCPConn) *NetStream {
+	var sm = &NetStream{TCPConn: cnn, isManualClose: false}
+	sm.WriteStream = NewWriteStream(cnn)
+	sm.ReadStream = NewReadStream(cnn)
+	return sm
+}
+func (stream *NetStream) GetLocalAddress() *net.TCPAddr {
+	if stream.LocalAddr() == nil {
+		return nil
+	}
+	return stream.LocalAddr().(*net.TCPAddr)
+}
+func (stream *NetStream) GetRemoteAddress() *net.TCPAddr {
+	return stream.RemoteAddr().(*net.TCPAddr)
+}
+
+func (stream *NetStream) ManualClose() {
+	stream.isManualClose = true
+	stream.Close()
+}
+func (stream *NetStream) IsManualClose() bool {
+	return stream.isManualClose
 }
