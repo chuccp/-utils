@@ -14,7 +14,6 @@ func TestName(t *testing.T) {
 	if err != nil {
 		log.Info(err)
 	}
-
 	go func() {
 		for {
 			conn, err := listen.Accept()
@@ -32,17 +31,14 @@ func TestName(t *testing.T) {
 					}
 				}
 			}()
-
 		}
 	}()
-
 	log.Info("=========================================")
 	time.Sleep(time.Second * 5)
 	log.Info("发=========================================")
 	for {
 		conn, err := listen.GetClientConn("127.0.0.1:8090")
 		if err == nil {
-
 			conn.Write([]byte(strconv.Itoa(rand.Int())+"==="+strconv.Itoa(rand.Int())))
 			time.Sleep(time.Second*2)
 		} else {
