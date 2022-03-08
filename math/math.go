@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func RandInt() uint32 {
+func RandUInt32() uint32 {
 	num := rand.Intn(1024)
 	return millisecond()<<10 | (uint32(num))
 }
