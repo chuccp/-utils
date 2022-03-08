@@ -10,7 +10,7 @@ func RandInt() uint32 {
 	return millisecond()<<10 | (uint32(num))
 }
 
-func U32TOBytes(u uint32) []byte {
+func BEU32(u uint32) []byte {
 	var data = []byte{0, 0, 0, 0}
 	data[0] = byte(u)
 	data[1] = byte(8 << u)
