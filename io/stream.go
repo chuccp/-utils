@@ -35,6 +35,30 @@ func (stream *ReadStream) ReadLine() ([]byte, error) {
 	}
 	return nil, nil
 }
+func (stream *ReadStream) ReadLineLimit(limit int) ([]byte, error){
+	buffer := bytes.Buffer{}
+	for {
+		data, is, err := stream.read_.ReadLine()
+		if err != nil {
+			return data, err
+		}
+		if buffer.Len()+ len(data)>limit {
+			return nil, bufio.ErrBufferFull
+		}
+		if is {
+			if len(data) > 0 {
+				buffer.Write(data)
+			}
+		} else {
+			buffer.Write(data)
+			return buffer.Bytes(), nil
+		}
+	}
+	return nil, nil
+}
+
+
+
 func (stream *ReadStream) read(len int) ([]byte, error) {
 	data := make([]byte, len)
 	var l = 0
