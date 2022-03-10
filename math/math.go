@@ -13,17 +13,17 @@ func RandUInt32() uint32 {
 func BEU32(u uint32) []byte {
 	var data = []byte{0, 0, 0, 0}
 	data[0] = byte(u)
-	data[1] = byte(8 << u)
-	data[2] = byte(16 << u)
-	data[3] = byte(24 << u)
+	data[1] = byte(u >> 8)
+	data[2] = byte(u >> 16)
+	data[3] = byte(u >> 24)
 	return data
 }
 func U32BE(data []byte) uint32 {
 	var num uint32
 	num = uint32(data[0])
-	num = num|(uint32(data[1])>>8)
-	num = num|(uint32(data[2])>>16)
-	num = num|(uint32(data[3])>>24)
+	num = num | (uint32(data[1]) << 8)
+	num = num | (uint32(data[2]) << 16)
+	num = num | (uint32(data[3]) << 24)
 	return num
 }
 
