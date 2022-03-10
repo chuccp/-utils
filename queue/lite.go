@@ -16,7 +16,7 @@ func (lite *LiteQueue)Offer(value interface{})int32  {
 	lite.values<-value
 	return nn
 }
-func (lite *LiteQueue) poll()  (value interface{}, nu int32){
+func (lite *LiteQueue) Poll()  (value interface{}, nu int32){
 	v:=<-lite.values
 	return v,atomic.AddInt32(&lite.num, -1)
 }
