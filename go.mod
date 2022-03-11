@@ -4,7 +4,6 @@ go 1.17
 
 require (
 	github.com/magiconair/properties v1.8.6
+	golang.org/x/crypto v0.0.0-20220307211146-efcb8507fb70
 	golang.org/x/text v0.3.7
 )
-
-
