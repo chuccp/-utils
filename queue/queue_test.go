@@ -13,7 +13,7 @@ func TestName(t *testing.T) {
 	go func() {
 		for{
 			time.Sleep(time.Second)
-			v,num:=lite.poll()
+			v,num:=lite.Poll()
 			log.Println(v,num)
 
 		}
