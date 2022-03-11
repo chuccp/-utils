@@ -46,7 +46,7 @@ func (x *XConn) WriteAndFlush(data []byte)  {
 	x.stream.Flush()
 }
 func (x *XConn)Read(f func([]byte) bool ){
-		data:=make([]byte,8192)
+	data:=make([]byte,8192)
 	go func() {
 		for{
 			num,err:=x.stream.Read(data)
