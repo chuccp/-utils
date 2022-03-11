@@ -40,3 +40,23 @@ func (x *XConn) LocalAddress() *net.TCPAddr {
 func (x *XConn) RemoteAddress() *net.TCPAddr {
 	return x.stream.GetRemoteAddress()
 }
+
+func (x *XConn) WriteAndFlush(data []byte)  {
+	x.stream.Write(data)
+	x.stream.Flush()
+}
+func (x *XConn)Read(f func([]byte) bool ){
+		data:=make([]byte,8192)
+	go func() {
+		for{
+			num,err:=x.stream.Read(data)
+			if err!=nil{
+				break
+			}else{
+				if !f(data[0:num]){
+					break
+				}
+			}
+		}
+	}()
+}
