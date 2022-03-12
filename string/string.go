@@ -6,7 +6,7 @@ import (
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
 	"io/ioutil"
-	
+
 )
 
 func Decode(data []byte, encoder encoding.Encoding) string {

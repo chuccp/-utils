@@ -94,6 +94,10 @@ func (stream *ReadStream) ReadByte() (byte, error) {
 	return stream.read_.ReadByte()
 }
 
+func (stream *ReadStream) Read(data []byte) (int,error) {
+	return stream.read_.Read(data)
+}
+
 type WriteStream struct {
 	write_ *bufio.Writer
 }
@@ -109,32 +113,51 @@ func (stream *WriteStream) Flush() error {
 	return stream.write_.Flush()
 }
 type NetStream struct {
-	*net.TCPConn
+	conn *net.TCPConn
 	*ReadStream
 	*WriteStream
 	isManualClose bool
 }
 
 func NewIOStream(cnn *net.TCPConn) *NetStream {
-	var sm = &NetStream{TCPConn: cnn, isManualClose: false}
+	var sm = &NetStream{conn: cnn, isManualClose: false}
 	sm.WriteStream = NewWriteStream(cnn)
 	sm.ReadStream = NewReadStream(cnn)
 	return sm
 }
 func (stream *NetStream) GetLocalAddress() *net.TCPAddr {
-	if stream.LocalAddr() == nil {
+	if stream.conn.LocalAddr() == nil {
 		return nil
 	}
-	return stream.LocalAddr().(*net.TCPAddr)
+	return stream.conn.LocalAddr().(*net.TCPAddr)
 }
 func (stream *NetStream) GetRemoteAddress() *net.TCPAddr {
-	return stream.RemoteAddr().(*net.TCPAddr)
+	return stream.conn.RemoteAddr().(*net.TCPAddr)
 }
 
 func (stream *NetStream) ManualClose() {
 	stream.isManualClose = true
-	stream.Close()
+	stream.conn.Close()
 }
 func (stream *NetStream) IsManualClose() bool {
 	return stream.isManualClose
+}
+func (stream *NetStream) WriteAndFlush(data []byte)  {
+	stream.Write(data)
+	stream.Flush()
+}
+func (stream *NetStream)ReadFunc(f func([]byte) bool ){
+	data:=make([]byte,8192)
+	go func() {
+		for{
+			num,err:=stream.ReadStream.Read(data)
+			if err!=nil{
+				break
+			}else{
+				if !f(data[0:num]){
+					break
+				}
+			}
+		}
+	}()
 }
