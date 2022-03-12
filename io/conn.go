@@ -1,7 +1,6 @@
 package io
 
 import (
-	"github.com/chuccp/utils/log"
 	"net"
 	"strconv"
 )
@@ -23,12 +22,11 @@ func NewXConn2(address string) *XConn {
 	return &XConn{port: addr.Port, host: addr.Network(), addr: addr}
 }
 func (x *XConn) Create() (*NetStream,error) {
-	log.InfoF("创建连接 {}",x.addr.String())
 	conn, err := net.DialTCP("tcp", nil, x.addr)
 	if err != nil {
 		return nil,err
 	}
-	x.stream = NewIOStream(conn)
+	x.stream = NewStream(conn)
 	return x.stream,nil
 }
 func (x *XConn) Close() {

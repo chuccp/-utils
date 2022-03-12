@@ -25,7 +25,7 @@ func (server *TCPServer) Bind() error {
 func (server *TCPServer) Accept() (*NetStream, error) {
 	tcn, err := server.listener.AcceptTCP()
 	if err == nil {
-		stream := NewIOStream(tcn)
+		stream := NewStream(tcn)
 		return stream, err
 	}
 	return nil, err

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"io"
 	"net"
+	"sync"
 )
 func ReadAll(read io.Reader)([]byte, error){
 	return io.ReadAll(read)
@@ -116,11 +117,12 @@ type NetStream struct {
 	conn *net.TCPConn
 	*ReadStream
 	*WriteStream
+	once *sync.Once
 	isManualClose bool
 }
 
-func NewIOStream(cnn *net.TCPConn) *NetStream {
-	var sm = &NetStream{conn: cnn, isManualClose: false}
+func NewStream(cnn *net.TCPConn) *NetStream {
+	var sm = &NetStream{conn: cnn, isManualClose: false,once: new(sync.Once)}
 	sm.WriteStream = NewWriteStream(cnn)
 	sm.ReadStream = NewReadStream(cnn)
 	return sm
@@ -150,7 +152,7 @@ func (stream *NetStream) WriteAndFlush(data []byte)(num int,err error)  {
 	err = stream.Flush()
 	return
 }
-func (stream *NetStream)ReadFunc(f func([]byte) bool ){
+func (stream *NetStream)ReadFunc(f func([]byte) bool,close func() ){
 	data:=make([]byte,8192)
 	go func() {
 		for{
@@ -163,5 +165,8 @@ func (stream *NetStream)ReadFunc(f func([]byte) bool ){
 				}
 			}
 		}
+		stream.once.Do(func() {
+			close()
+		})
 	}()
 }
