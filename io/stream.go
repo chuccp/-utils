@@ -142,9 +142,13 @@ func (stream *NetStream) ManualClose() {
 func (stream *NetStream) IsManualClose() bool {
 	return stream.isManualClose
 }
-func (stream *NetStream) WriteAndFlush(data []byte)  {
-	stream.Write(data)
-	stream.Flush()
+func (stream *NetStream) WriteAndFlush(data []byte)(num int,err error)  {
+	num,err=stream.Write(data)
+	if err!=nil{
+		return
+	}
+	err = stream.Flush()
+	return
 }
 func (stream *NetStream)ReadFunc(f func([]byte) bool ){
 	data:=make([]byte,8192)
