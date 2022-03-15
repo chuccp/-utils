@@ -2,8 +2,11 @@ package udp
 
 import (
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"golang.org/x/crypto/hkdf"
 )
 var quicSalt = []byte{0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a}
@@ -24,6 +27,22 @@ func hkdfExpandLabel(hash crypto.Hash, secret, context []byte, label string, len
 		panic("quic: HKDF-Expand-Label invocation failed unexpectedly")
 	}
 	return out
+}
+
+func newAESHeaderProtector(trafficSecret []byte) cipher.Block {
+	hpKey := hkdfExpandLabel(crypto.SHA256, trafficSecret, []byte{}, "quic hp", 16)
+	block, err := aes.NewCipher(hpKey)
+	if err != nil {
+		panic(fmt.Sprintf("error creating new AES cipher: %s", err))
+	}
+	return block
+}
+
+func NewInitialAEAD(connID []byte) (cipher.Block,[]byte) {
+	c,_:=computeSecrets(connID)
+	block:=newAESHeaderProtector(c)
+	return block , make([]byte, block.BlockSize())
+
 }
 
 func computeSecrets(connID []byte) (clientSecret, serverSecret []byte) {

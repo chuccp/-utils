@@ -116,6 +116,13 @@ func (f *File) Truncate() error {
 		return err
 	}
 }
+func (f *File) ToRawFile() (*os.File, error){
+	flag, err := f.Exists()
+	if !flag {
+		return  nil, err
+	}
+	return f.file,nil
+}
 func (f *File) Read() ([]byte, bool, error) {
 	flag, err := f.Exists()
 	if !flag {
