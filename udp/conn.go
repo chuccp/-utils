@@ -14,6 +14,9 @@ type connStore struct {
 
 func (s *connStore) getConn(conn *net.UDPConn,remoteAddr net.Addr) (*Conn, bool) {
 	var localAddr = conn.LocalAddr()
+	if remoteAddr.String()==localAddr.String(){
+		panic("remoteAddr can't same with localAddr")
+	}
 	key := "remote:" + remoteAddr.String() + "|" + "local:" + localAddr.String()
 	v, ok := s.connMap.Load(key)
 	if ok {
@@ -35,6 +38,7 @@ type Conn struct {
 	localAddr  net.Addr
 	buffer     *bytes.Buffer
 	conn       *net.UDPConn
+	IsClient bool
 }
 
 func (c *Conn) RemoteAddr() net.Addr {

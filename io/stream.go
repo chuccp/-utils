@@ -17,7 +17,9 @@ type ReadStream struct {
 func NewReadStream(read io.Reader) *ReadStream {
 	return &ReadStream{read_: bufio.NewReader(read)}
 }
-
+func NewReadBytesStream(data []byte) *ReadStream {
+	return NewReadStream(bytes.NewReader(data))
+}
 func (stream *ReadStream) ReadLine() ([]byte, error) {
 	buffer := bytes.Buffer{}
 	for {
@@ -90,6 +92,22 @@ func (stream *ReadStream) ReadUintBytes(len uint32) ([]byte, error) {
 
 func (stream *ReadStream) ReadBytes(len int) ([]byte, error) {
 	return stream.read(len)
+}
+func (stream *ReadStream) Read2Uint16() (uint16, error) {
+	 data,err:=stream.read(2)
+	 if err!=nil{
+	 	return 0, err
+	 }else{
+	 	return uint16(data[0])<<8|uint16(data[1]), nil
+	 }
+}
+func (stream *ReadStream) Read3Uint32() (uint32, error) {
+	data,err:=stream.read(3)
+	if err!=nil{
+		return 0, err
+	}else{
+		return uint32(data[0])<<16|uint32(data[1])<<8|uint32(data[2]), nil
+	}
 }
 func (stream *ReadStream) ReadByte() (byte, error) {
 	return stream.read_.ReadByte()

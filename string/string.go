@@ -16,8 +16,8 @@ func Decode(data []byte, encoder encoding.Encoding) string {
 }
 
 func StringDecode(data []byte, encoder string) string {
-	if encoder == "GBK" {
-		data, _ = ioutil.ReadAll(transform.NewReader(bytes.NewReader([]byte(data)), simplifiedchinese.GBK.NewDecoder()))
+	if encoder == "GBK" || encoder == "gbk" {
+		data, _ = ioutil.ReadAll(transform.NewReader(bytes.NewReader(data), simplifiedchinese.GBK.NewDecoder()))
 		return string(data)
 	}
 	return string(data)

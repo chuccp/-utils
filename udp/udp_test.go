@@ -9,7 +9,6 @@ import (
 )
 
 func TestName(t *testing.T) {
-
 	listen, err := ListenAddr(8090)
 	if err != nil {
 		log.Info(err)
@@ -33,9 +32,7 @@ func TestName(t *testing.T) {
 			}()
 		}
 	}()
-	log.Info("=========================================")
 	time.Sleep(time.Second * 5)
-	log.Info("发=========================================")
 	for {
 		conn, err := listen.GetClientConn("127.0.0.1:8090")
 		if err == nil {

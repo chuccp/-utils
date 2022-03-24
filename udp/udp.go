@@ -1,24 +1,29 @@
 package udp
 
 import (
+	"io"
 	"net"
 	"strconv"
 )
 
+type Config struct {
+
+}
+
 type Listener struct {
 	conn       *net.UDPConn
-	readStream *ReadStream
 	connStore  *connStore
 }
 
 func (l *Listener) Accept() (*Conn, error) {
-
 	for {
-		data,remoteAddr, err := l.readStream.Read(1024)
+		data:=make([]byte,MaxPacketBufferSize)
+		_,remoteAddr, err := l.conn.ReadFromUDP(data)
 		if err != nil {
 			return nil, err
 		}
 		conn, flag := l.connStore.getConn(l.conn,remoteAddr)
+		conn.IsClient = false
 		conn.push(data)
 		if flag {
 			return conn, nil
@@ -30,11 +35,16 @@ func (l *Listener) GetClientConn(address string) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newConn(udpAddr, l.conn.LocalAddr(), l.conn), nil
+	conn, flag :=l.connStore.getConn(l.conn,udpAddr)
+	conn.IsClient = true
+	if flag{
+		return conn, nil
+	}
+	return nil, io.EOF
 }
 
 func newListener(conn *net.UDPConn) *Listener {
-	return &Listener{conn: conn, readStream: newReadStream(conn), connStore: newConnStore()}
+	return &Listener{conn: conn, connStore: newConnStore()}
 }
 func ListenAddr(port int) (*Listener, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:"+strconv.Itoa(port))

@@ -1,6 +1,7 @@
 package udp
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -29,17 +30,29 @@ type Header struct {
 	longHeader      bool
 	version         []byte
 	desConnIdLen    int
-	desConnId       []byte
+	desConnId       ConnectionID
 	sourceConnIdLen int
-	sourceConnId    []byte
+	sourceConnId    ConnectionID
 	tokenLen        int
 	token           []byte
-	length          uint64
+	length          uint32
 	parsedLen       int
 	payload         []byte
 
 }
-
+type ConnectionID []byte
+func (c ConnectionID) String() string {
+	if c.Len() == 0 {
+		return "(empty)"
+	}
+	return fmt.Sprintf("%x", c.Bytes())
+}
+func (c ConnectionID) Len() int {
+	return len(c)
+}
+func (c ConnectionID) Bytes() []byte {
+	return []byte(c)
+}
 func parseLongHeader(data []byte) *Header {
 	header := &Header{}
 	header.typeByte = data[0]
@@ -61,23 +74,11 @@ func parseLongHeader(data []byte) *Header {
 		header.token = data[8+header.desConnIdLen+header.sourceConnIdLen : 8+header.desConnIdLen+header.sourceConnIdLen+header.tokenLen]
 	}
 	index := 8 + header.desConnIdLen + header.sourceConnIdLen + header.tokenLen
-	length, ty := readLength(data[index:])
+	length, ty := ReadBytesVariableLength(data[index:])
 	header.length = length
 	header.parsedLen = index+ty
 	header.payload = data[index+ty : index+ty+int(length)]
 	return header
 }
 
-func readLength(data []byte) (uint64, int) {
-	lenType := data[0]
-	switch lenType >> 6 {
-	case 0:
-		return uint64(data[0] & 63), 1
-	case 1:
-		return uint64(data[0]&63)<<8 | uint64(data[1]), 2
-	case 2:
-		return uint64(data[0]&63)<<16 | uint64(data[1])<<8 | uint64(data[2]), 3
-	default:
-		return uint64(data[0]&63)<<24 | uint64(data[1])<<16 | uint64(data[2])<<8 | uint64(data[3]), 4
-	}
-}
+
