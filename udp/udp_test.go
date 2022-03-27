@@ -2,8 +2,6 @@ package udp
 
 import (
 	"github.com/chuccp/utils/log"
-	"math/rand"
-	"strconv"
 	"testing"
 	"time"
 )
@@ -21,7 +19,8 @@ func TestName(t *testing.T) {
 			}
 			go func() {
 				for {
-					var data = make([]byte, 1024)
+					var data = make([]byte, MaxPacketBufferSize)
+					log.Info("#######:",data)
 					num, err := conn.Read(data)
 					if err == nil {
 						log.Info(num, string(data[0:num]))
@@ -32,12 +31,12 @@ func TestName(t *testing.T) {
 			}()
 		}
 	}()
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 1)
 	for {
-		conn, err := listen.GetClientConn("127.0.0.1:8090")
+		_, err := listen.GetClientConn("129.211.17.31:8086")
 		if err == nil {
-			conn.Write([]byte(strconv.Itoa(rand.Int())+"==="+strconv.Itoa(rand.Int())))
-			time.Sleep(time.Second*2)
+			//conn.Write([]byte(strconv.Itoa(rand.Int())+"==="+strconv.Itoa(rand.Int())))
+			time.Sleep(time.Hour*2)
 		} else {
 			log.Info(err)
 			break

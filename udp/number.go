@@ -2,6 +2,7 @@ package udp
 
 import (
 	"bytes"
+	"encoding/binary"
 	"github.com/chuccp/utils/io"
 )
 
@@ -42,4 +43,25 @@ func VariableLengthBytes(num uint32) []byte  {
 	}else {
 		return []byte{byte(num>>24)|0xC0,byte(num>>16),byte(num>>8),byte(num)}
 	}
+}
+func VariableLengthBytes2(num uint32) []byte  {
+	if num<=0xf{
+		return []byte{byte(num)}
+	}else if num<=0xff{
+		return []byte{byte(num>>8)|0x40,byte(num)}
+	}else {
+		return []byte{0x80,byte(num>>16),byte(num>>8),byte(num)}
+	}
+}
+
+
+func U16B(value uint16)[]byte  {
+	data:=make([]byte, 2)
+	binary.BigEndian.PutUint16(data,value)
+	return data
+}
+func U32B(value uint32)[]byte  {
+	data:=make([]byte, 4)
+	binary.BigEndian.PutUint32(data,value)
+	return data
 }

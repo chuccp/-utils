@@ -1,9 +1,14 @@
 package udp
 
-import "testing"
+import (
+	"github.com/chuccp/utils/log"
+	"testing"
+)
 
 func TestLongHeaderPacket(t *testing.T) {
-	connId:=[]byte{0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7}
+	connId:=[]byte{0x8c,0x07,0x0c,0x38,0x6e,0xf8,0xef,0x21,0x9c,0x6d,0xba,0x73,0xed,0xa7,0x4f}
 	pack:=Initial(connId)
-	t.Log(pack.Bytes())
+	data:=pack.Bytes()
+	log.Info(ConnectionID(data))
+	un_package(data)
 }

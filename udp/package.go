@@ -26,14 +26,8 @@ type LongHeaderPackage struct {
 }
 
 func (longHeaderPackage *LongHeaderPackage) Bytes()[]byte  {
-
-
-
 	var buff = new(bytes.Buffer)
 	aead:=NewInitialAEAD(longHeaderPackage.desConnId)
-
-
-
 	var headType byte= 0
 	if longHeaderPackage.headerFrom{
 		headType = headType|128
@@ -43,7 +37,7 @@ func (longHeaderPackage *LongHeaderPackage) Bytes()[]byte  {
 	}
 	headType = headType|(longHeaderPackage.longPacketType<<4)
 	headType = headType|(longHeaderPackage.reservedBits<<2)
-	headType = headType|longHeaderPackage.packetNumberLength
+	headType = headType|(longHeaderPackage.packetNumberLength-1)
 	buff.WriteByte(headType)
 	buff.Write(longHeaderPackage.version)
 	buff.WriteByte(longHeaderPackage.desConnIdLength)
@@ -52,49 +46,81 @@ func (longHeaderPackage *LongHeaderPackage) Bytes()[]byte  {
 	buff.Write(longHeaderPackage.sourceConnId)
 	buff.Write(longHeaderPackage.tokenLength)
 	buff.Write(longHeaderPackage.token)
-	buff.Write(VariableLengthBytes(uint32(len(longHeaderPackage.payload))+ 16))
+
+	var payloadLen = 1227-16
+
+	buff.Write(VariableLengthBytes(1227))
+
 
 	rdata:=buff.Bytes()
+
+	log.Info("AAA",longHeaderPackage.packetNumber)
 
 	buff.Write(longHeaderPackage.packetNumber)
 	exLen:=buff.Len()
 	additionalData:=buff.Bytes()
+
+	log.Info(ConnectionID(additionalData))
+
 	buff.Write(longHeaderPackage.payload)
 	data := buff.Bytes()
 	text:=data[exLen:]
 	nonceBuf:=make([]byte, aead.aead.NonceSize())
+
+	log.Info("aead.iv=====1:",aead.iv)
+
 	copy(nonceBuf[len(nonceBuf)-int(longHeaderPackage.packetNumberLength):],longHeaderPackage.packetNumber)
 	for i, b := range nonceBuf[len(nonceBuf)-8:] {
 		aead.iv[4+i] ^= b
 	}
-	log.Info("!!!", len(text))
-	ciphertext:=aead.aead.Seal([]byte{},aead.iv,text,additionalData)
-	log.Info("!!!", len(ciphertext))
-	sample:=ciphertext[4-int(longHeaderPackage.packetNumberLength):20-int(longHeaderPackage.packetNumberLength)]
 
+	log.Info("aead.iv=====2:",aead.iv)
+
+	readLen:=payloadLen-int(longHeaderPackage.packetNumberLength)
+
+	payload:=make([]byte,readLen)
+
+	copy(payload[readLen-len(text):],text)
+
+	log.Info("additionalData=====1:",additionalData)
+	log.Info("payload:",ConnectionID(payload))
+
+	ciphertext:=aead.aead.Seal([]byte{},aead.iv,payload,additionalData)
+
+	log.Info("ciphertext:",ciphertext)
+
+	sample:=ciphertext[4-int(longHeaderPackage.packetNumberLength):20-int(longHeaderPackage.packetNumberLength)]
 	mask:=make([]byte, aead.block.BlockSize())
-	aead.block.Decrypt(mask,sample)
+
+	log.Info("sample",sample)
+	aead.block.Encrypt(mask,sample)
 
 	rdata[0] ^= mask[0] & 0xf
 
 	for i := range longHeaderPackage.packetNumber {
 		longHeaderPackage.packetNumber[i] ^= mask[i+1]
 	}
-
 	var buff2 = new(bytes.Buffer)
 	buff2.Write(rdata)
+	log.Info("rdata:",rdata)
 	buff2.Write(longHeaderPackage.packetNumber)
 	buff2.Write(ciphertext)
+	log.Info("len:",len(ciphertext)+ len(longHeaderPackage.packetNumber))
 	return buff2.Bytes()
 }
 
 
 func GenerateConnectionID(len int) (ConnectionID, error) {
+	data,err:=RandId(len)
+	return data, err
+}
+
+func RandId(len int) ([]byte, error) {
 	b := make([]byte, len)
 	if _, err := rand.Read(b); err != nil {
 		return nil, err
 	}
-	return ConnectionID(b), nil
+	return b, nil
 }
 
 func Initial(DesConnectionID []byte)*LongHeaderPackage  {
@@ -103,17 +129,24 @@ func Initial(DesConnectionID []byte)*LongHeaderPackage  {
 
 func LongHeaderPacket(DesConnectionID []byte,packetType PacketType)*LongHeaderPackage  {
 
-	var packetNumberLength uint8 = 1
-	var packetNumber uint64=1
+	var packetNumberLength uint8 = 2
+	var packetNumber uint64=0
 	pn:=make([]byte,8)
 	binary.BigEndian.PutUint64(pn,packetNumber)
-	pn = pn[8-packetNumber:]
+	pn = pn[8-packetNumberLength:]
+
+	ch:= NewClientHello()
+	dl:=ch.Bytes()
+	crypto:=NewCrypto(0, dl)
+	data:=crypto.Bytes()
+	log.Info("crypto:",ConnectionID(data))
+
 	return &LongHeaderPackage{
 		headerFrom:true,fixedBig:true,longPacketType: byte(packetType),reservedBits:0,
 		packetNumberLength:packetNumberLength,version:[]byte{0,0,0,1},
 		desConnIdLength: uint8(len(DesConnectionID)),desConnId:DesConnectionID,
 		sourceConnLength:0, sourceConnId:[]byte{},tokenLength:[]byte{0},token:[]byte{},packetNumber:pn,
-		payload:[]byte{1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8,12,3,4,5,6,7,8},
+		payload:crypto.Bytes(),
 	}
 }
 

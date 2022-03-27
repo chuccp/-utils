@@ -22,7 +22,7 @@ func (l *Listener) Accept() (*Conn, error) {
 		if err != nil {
 			return nil, err
 		}
-		conn, flag := l.connStore.getConn(l.conn,remoteAddr)
+		conn, flag := l.connStore.getConn(l.conn,remoteAddr,false)
 		conn.IsClient = false
 		conn.push(data)
 		if flag {
@@ -35,7 +35,7 @@ func (l *Listener) GetClientConn(address string) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn, flag :=l.connStore.getConn(l.conn,udpAddr)
+	conn, flag :=l.connStore.getConn(l.conn,udpAddr,true)
 	conn.IsClient = true
 	if flag{
 		return conn, nil

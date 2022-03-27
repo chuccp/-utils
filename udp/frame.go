@@ -6,16 +6,7 @@ import (
 	io2 "io"
 )
 
-type Crypto struct {
-	Offset uint32
-	Length uint32
-	data []byte
-}
 
-func  NewCrypto(Offset uint32,Length uint32,data []byte)*Crypto  {
-
-	return &Crypto{Offset:Offset,Length:Length,data:data}
-}
 
 func ParseFrame(data []byte) (*bytes.Buffer,error){
 	r := io.NewReadStream(bytes.NewReader(data))
@@ -38,11 +29,11 @@ func ParseFrame(data []byte) (*bytes.Buffer,error){
 				return nil,io2.EOF
 			}
 
-			data,err:=r.ReadUintBytes(len)
+			data2,err:=r.ReadUintBytes(len)
 			if err!=nil{
 				return nil,err
 			}
-			cryptoMap[offset] = NewCrypto(offset,len,data)
+			cryptoMap[offset] = NewCrypto(offset,data2)
 		}
 	}
 	buff:=new(bytes.Buffer)

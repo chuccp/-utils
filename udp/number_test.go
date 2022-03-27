@@ -20,3 +20,8 @@ func TestAAAA(t *testing.T) {
 	binary.BigEndian.PutUint64(data,packetNumber)
 	t.Log(data)
 }
+func TestCipher(t *testing.T) {
+
+
+	t.Log(CipgerBytes(TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384))
+}

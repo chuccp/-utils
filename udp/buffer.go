@@ -1,8 +1,10 @@
 package udp
 
 import "io"
+
 type ByteCount int64
 const MaxPacketBufferSize ByteCount = 1452
+
 type buffer struct {
 	data []byte
 	len uint64

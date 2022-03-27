@@ -2,6 +2,7 @@ package udp
 
 import (
 	"fmt"
+	"github.com/chuccp/utils/log"
 	"io"
 )
 
@@ -54,6 +55,7 @@ func (c ConnectionID) Bytes() []byte {
 	return []byte(c)
 }
 func parseLongHeader(data []byte) *Header {
+	log.Info(data)
 	header := &Header{}
 	header.typeByte = data[0]
 	if header.typeByte&128>0{
@@ -75,9 +77,11 @@ func parseLongHeader(data []byte) *Header {
 	}
 	index := 8 + header.desConnIdLen + header.sourceConnIdLen + header.tokenLen
 	length, ty := ReadBytesVariableLength(data[index:])
+	log.Info("length:",length)
 	header.length = length
 	header.parsedLen = index+ty
 	header.payload = data[index+ty : index+ty+int(length)]
+	log.Info("payload:",header.payload)
 	return header
 }
 
