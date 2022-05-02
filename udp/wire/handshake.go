@@ -1,11 +1,81 @@
-package udp
+package wire
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"fmt"
 	"github.com/chuccp/utils/io"
+	"github.com/chuccp/utils/udp/util"
 	"log"
+	"sync"
 )
 
+type   HandShakeProgress uint8
+const (
+	WaitRetry  HandShakeProgress = iota
+
+)
+
+
+
+type PacketType uint8
+const (
+	// PacketTypeInitial is the packet type of an Initial packet
+	PacketTypeInitial PacketType =  iota
+	// PacketTypeRetry is the packet type of a Retry packet
+	PacketTypeRetry
+	// PacketTypeHandshake is the packet type of a Handshake packet
+	PacketTypeHandshake
+	// PacketType0RTT is the packet type of a 0-RTT packet
+	PacketType0RTT
+)
+func initAEAD(key [16]byte) cipher.AEAD {
+	aes, err := aes.NewCipher(key[:])
+	if err != nil {
+		panic(err)
+	}
+	aead, err := cipher.NewGCM(aes)
+	if err != nil {
+		panic(err)
+	}
+	return aead
+}
+var (
+	retryAEAD = initAEAD([16]byte{0xbe, 0x0c, 0x69, 0x0b, 0x9f, 0x66, 0x57, 0x5a, 0x1d, 0x76, 0x6b, 0x54, 0xe3, 0x68, 0xc8, 0x4e})
+	retryNonce    = [12]byte{0x46, 0x15, 0x99, 0xd3, 0x5d, 0x63, 0x2b, 0xf2, 0x23, 0x98, 0x25, 0xbb}
+)
+
+var (
+	retryMutex    sync.Mutex
+)
+
+func GetRetryIntegrityTag(retry []byte, origDestConnID ConnectionID) *[16]byte {
+	retryMutex.Lock()
+	var  retryBuf = new(bytes.Buffer)
+	retryBuf.WriteByte(uint8(origDestConnID.Len()))
+	retryBuf.Write(origDestConnID.Bytes())
+	retryBuf.Write(retry)
+	var tag [16]byte
+	var sealed = retryAEAD.Seal(tag[:0], retryNonce[:], nil, retryBuf.Bytes())
+	if len(sealed) != 16 {
+		panic(fmt.Sprintf("unexpected Retry integrity tag length: %d", len(sealed)))
+	}
+	retryMutex.Unlock()
+	return &tag
+}
+
+func HandleRetryPacket(data []byte,desConnId ConnectionID) bool  {
+	l:= len(data)
+	retryToken := data[:l-16]
+
+	tagV:=GetRetryIntegrityTag(retryToken,desConnId.Bytes())
+	tag :=data[l-16:]
+	if bytes.Equal(tagV[:],tag){
+		return true
+	}
+	return false
+}
 type  ExtensionsType uint16
 type Extensions struct {
 	ExtensionsType ExtensionsType
@@ -28,13 +98,32 @@ type ClientHello struct {
 	ExtMap                   map[ExtensionsType]*Extensions
 }
 
-func NewClientHello() *ClientHello {
+func NewClientHello(random []byte) *ClientHello {
 	ch:=&ClientHello{ExtMap:make(map[ExtensionsType]*Extensions)}
 	ch.HandshakeType = byte(typeClientHello)
 	ch.Version = []byte{0x03,0x03}
-	ch.Random,_ = RandId(32)
+	ch.Random = random[:]
 	ch.SessionLength = 0
-	ch.CiphersSuites = CipgerBytes(TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384)
+	ch.CiphersSuites = CipgerBytes(
+		TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+		TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+		TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+		TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+		TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+		TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+		TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+		TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+		TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+		TLS_RSA_WITH_AES_128_GCM_SHA256,
+		TLS_RSA_WITH_AES_256_GCM_SHA384,
+		TLS_RSA_WITH_AES_128_CBC_SHA,
+		TLS_RSA_WITH_AES_256_CBC_SHA,
+		TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+		TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+		TLS_AES_128_GCM_SHA256,
+		TLS_AES_256_GCM_SHA384,
+		TLS_CHACHA20_POLY1305_SHA256)
 	ch.CompressionMethods = []byte{0}
 	ch.CompressionMethodsLength=1
 	return ch
@@ -47,24 +136,24 @@ func (c *ClientHello)Bytes()[]byte{
 	buff.Write(c.Version)
 	buff.Write(c.Random)
 	buff.WriteByte(c.SessionLength)
-	buff.Write(U16B(uint16(len(c.CiphersSuites))))
+	buff.Write(util.U16B(uint16(len(c.CiphersSuites))))
 	buff.Write(c.CiphersSuites)
 	buff.WriteByte(1)
 	buff.WriteByte(0)
 	ex:=Extansions()
-	buff.Write(U16B(uint16(len(ex))))
+	buff.Write(util.U16B(uint16(len(ex))))
 	buff.Write(ex)
 	var buff1 = new(bytes.Buffer)
 	buff1.WriteByte(1)
 	data:=buff.Bytes()
-	bytes:=U32B(uint32(len(data)))
+	bytes:=util.U32B(uint32(len(data)))
 	buff1.Write(bytes[1:4])
 	buff1.Write(data)
 	return buff1.Bytes()
 }
 
 func ParseClientHello(read *io.ReadStream)  {
-	var ch  = NewClientHello()
+	var ch  = new(ClientHello)
 	data,err:=read.ReadBytes(3)
 	if err==nil{
 		ch.Length= uint32(data[0])<<16 | uint32(data[1])<<8 | uint32(data[2])

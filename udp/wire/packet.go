@@ -1,11 +1,21 @@
-package udp
+package wire
 
 import (
 	"bytes"
 	"encoding/binary"
 	"github.com/chuccp/utils/log"
-	"math/rand"
+	"github.com/chuccp/utils/udp/util"
+	"math"
 )
+
+type InitialParameter struct {
+	ConnectionID []byte
+	Token        []byte
+	PacketNum    ByteCount
+	Random       []byte
+	PacketType   PacketType
+
+}
 
 type LongHeaderPackage struct {
 	headerFrom         bool
@@ -49,12 +59,11 @@ func (longHeaderPackage *LongHeaderPackage) Bytes()[]byte  {
 
 	var payloadLen = 1227-16
 
-	buff.Write(VariableLengthBytes(1227))
+	buff.Write(util.VariableLengthBytes(1227))
 
 
 	rdata:=buff.Bytes()
 
-	log.Info("AAA",longHeaderPackage.packetNumber)
 
 	buff.Write(longHeaderPackage.packetNumber)
 	exLen:=buff.Len()
@@ -67,14 +76,12 @@ func (longHeaderPackage *LongHeaderPackage) Bytes()[]byte  {
 	text:=data[exLen:]
 	nonceBuf:=make([]byte, aead.aead.NonceSize())
 
-	log.Info("aead.iv=====1:",aead.iv)
 
 	copy(nonceBuf[len(nonceBuf)-int(longHeaderPackage.packetNumberLength):],longHeaderPackage.packetNumber)
 	for i, b := range nonceBuf[len(nonceBuf)-8:] {
 		aead.iv[4+i] ^= b
 	}
 
-	log.Info("aead.iv=====2:",aead.iv)
 
 	readLen:=payloadLen-int(longHeaderPackage.packetNumberLength)
 
@@ -82,17 +89,13 @@ func (longHeaderPackage *LongHeaderPackage) Bytes()[]byte  {
 
 	copy(payload[readLen-len(text):],text)
 
-	log.Info("additionalData=====1:",additionalData)
-	log.Info("payload:",ConnectionID(payload))
 
 	ciphertext:=aead.aead.Seal([]byte{},aead.iv,payload,additionalData)
 
-	log.Info("ciphertext:",ciphertext)
 
 	sample:=ciphertext[4-int(longHeaderPackage.packetNumberLength):20-int(longHeaderPackage.packetNumberLength)]
 	mask:=make([]byte, aead.block.BlockSize())
 
-	log.Info("sample",sample)
 	aead.block.Encrypt(mask,sample)
 
 	rdata[0] ^= mask[0] & 0xf
@@ -102,56 +105,37 @@ func (longHeaderPackage *LongHeaderPackage) Bytes()[]byte  {
 	}
 	var buff2 = new(bytes.Buffer)
 	buff2.Write(rdata)
-	log.Info("rdata:",rdata)
 	buff2.Write(longHeaderPackage.packetNumber)
 	buff2.Write(ciphertext)
-	log.Info("len:",len(ciphertext)+ len(longHeaderPackage.packetNumber))
 	return buff2.Bytes()
 }
 
 
-func GenerateConnectionID(len int) (ConnectionID, error) {
-	data,err:=RandId(len)
-	return data, err
+
+
+
+
+func Initial(initialParameter *InitialParameter)*LongHeaderPackage  {
+	return LongHeaderPacket(initialParameter)
 }
 
-func RandId(len int) ([]byte, error) {
-	b := make([]byte, len)
-	if _, err := rand.Read(b); err != nil {
-		return nil, err
-	}
-	return b, nil
-}
-
-func Initial(DesConnectionID []byte)*LongHeaderPackage  {
-	return LongHeaderPacket(DesConnectionID,PacketTypeInitial)
-}
-
-func LongHeaderPacket(DesConnectionID []byte,packetType PacketType)*LongHeaderPackage  {
-
+func LongHeaderPacket(initialParameter *InitialParameter)*LongHeaderPackage  {
 	var packetNumberLength uint8 = 2
-	var packetNumber uint64=0
+	if initialParameter.PacketNum >math.MaxUint16{
+		packetNumberLength = 4
+	}
 	pn:=make([]byte,8)
-	binary.BigEndian.PutUint64(pn,packetNumber)
+	binary.BigEndian.PutUint64(pn, uint64(initialParameter.PacketNum))
 	pn = pn[8-packetNumberLength:]
-
-	ch:= NewClientHello()
+	ch:= NewClientHello(initialParameter.Random)
 	dl:=ch.Bytes()
 	crypto:=NewCrypto(0, dl)
-	data:=crypto.Bytes()
-	log.Info("crypto:",ConnectionID(data))
-
+	tokenLen := len(initialParameter.Token)
 	return &LongHeaderPackage{
-		headerFrom:true,fixedBig:true,longPacketType: byte(packetType),reservedBits:0,
+		headerFrom:true,fixedBig:true,longPacketType: byte(initialParameter.PacketType),reservedBits:0,
 		packetNumberLength:packetNumberLength,version:[]byte{0,0,0,1},
-		desConnIdLength: uint8(len(DesConnectionID)),desConnId:DesConnectionID,
-		sourceConnLength:0, sourceConnId:[]byte{},tokenLength:[]byte{0},token:[]byte{},packetNumber:pn,
+		desConnIdLength: uint8(len(initialParameter.ConnectionID)),desConnId:initialParameter.ConnectionID,
+		sourceConnLength:0, sourceConnId:[]byte{},tokenLength:util.VariableLengthBytes(uint32(tokenLen)),token:initialParameter.Token,packetNumber:pn,
 		payload:crypto.Bytes(),
 	}
 }
-
-
-
-
-
-

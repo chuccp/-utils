@@ -3,7 +3,6 @@ package udp
 import (
 	"github.com/chuccp/utils/log"
 	"testing"
-	"time"
 )
 
 func TestName(t *testing.T) {
@@ -20,7 +19,6 @@ func TestName(t *testing.T) {
 			go func() {
 				for {
 					var data = make([]byte, MaxPacketBufferSize)
-					log.Info("#######:",data)
 					num, err := conn.Read(data)
 					if err == nil {
 						log.Info(num, string(data[0:num]))
@@ -31,12 +29,10 @@ func TestName(t *testing.T) {
 			}()
 		}
 	}()
-	time.Sleep(time.Second * 1)
+	log.Info("获取客户端")
 	for {
 		_, err := listen.GetClientConn("129.211.17.31:8086")
 		if err == nil {
-			//conn.Write([]byte(strconv.Itoa(rand.Int())+"==="+strconv.Itoa(rand.Int())))
-			time.Sleep(time.Hour*2)
 		} else {
 			log.Info(err)
 			break

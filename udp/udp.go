@@ -1,50 +1,68 @@
 package udp
 
 import (
+	"github.com/chuccp/utils/log"
 	"io"
 	"net"
 	"strconv"
 )
 
 type Config struct {
-
 }
 
 type Listener struct {
-	conn       *net.UDPConn
-	connStore  *connStore
+	conn      *net.UDPConn
+	connStore *connStore
+	chanConn  chan *Conn
+}
+
+func (l *Listener) readUDP() {
+	log.Info("开始读取信息")
+	for {
+		data := make([]byte, MaxPacketBufferSize)
+		num, remoteAddr, err := l.conn.ReadFromUDP(data)
+		log.Info("读取数据",num,remoteAddr,err)
+		if err == nil {
+			groupConn := l.connStore.getGroup(l.conn, remoteAddr)
+			conn, flag := groupConn.Write(data[:num])
+			if flag {
+				l.chanConn <- conn
+			}
+		} else {
+			break
+		}
+	}
+	l.chanConn <- nil
 }
 
 func (l *Listener) Accept() (*Conn, error) {
-	for {
-		data:=make([]byte,MaxPacketBufferSize)
-		_,remoteAddr, err := l.conn.ReadFromUDP(data)
-		if err != nil {
-			return nil, err
-		}
-		conn, flag := l.connStore.getConn(l.conn,remoteAddr,false)
-		conn.IsClient = false
-		conn.push(data)
-		if flag {
-			return conn, nil
-		}
+	c := <-l.chanConn
+	if c == nil {
+		return nil, io.EOF
 	}
+	return c, nil
 }
 func (l *Listener) GetClientConn(address string) (*Conn, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {
 		return nil, err
 	}
-	conn, flag :=l.connStore.getConn(l.conn,udpAddr,true)
+	conn, err, flag := l.connStore.getConn(l.conn, udpAddr, true)
+	if err != nil {
+		return nil, err
+	}
 	conn.IsClient = true
-	if flag{
+	if flag {
 		return conn, nil
 	}
 	return nil, io.EOF
 }
 
 func newListener(conn *net.UDPConn) *Listener {
-	return &Listener{conn: conn, connStore: newConnStore()}
+	chanConn := make(chan *Conn)
+	listener:= &Listener{conn: conn, connStore: newConnStore(), chanConn: chanConn}
+	go listener.readUDP()
+	return listener
 }
 func ListenAddr(port int) (*Listener, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:"+strconv.Itoa(port))

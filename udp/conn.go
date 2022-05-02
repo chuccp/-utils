@@ -4,16 +4,36 @@ import (
 	"bytes"
 	"github.com/chuccp/utils/log"
 	"github.com/chuccp/utils/queue"
-	"io"
+	"github.com/chuccp/utils/udp/util"
+	"github.com/chuccp/utils/udp/wire"
 	"net"
 	"sync"
+	"time"
 )
 
 type connStore struct {
 	connMap *sync.Map
 }
 
-func (s *connStore) getConn(conn *net.UDPConn, remoteAddr net.Addr, isClient bool) (*Conn, bool) {
+type receivedPacket struct {
+	data    []byte
+	rcvTime time.Time
+	header  *wire.Header
+}
+
+func (s *connStore) getGroup(conn *net.UDPConn, remoteAddr net.Addr) *GroupConn {
+	var localAddr = conn.LocalAddr()
+	key := "remote:" + remoteAddr.String() + "|" + "local:" + localAddr.String()
+	v, ok := s.connMap.Load(key)
+	if !ok {
+		gp := NewGroupConn(remoteAddr, localAddr)
+		s.connMap.Store(key, gp)
+
+	}
+	return v.(*GroupConn)
+}
+
+func (s *connStore) getConn(conn *net.UDPConn, remoteAddr net.Addr, isClient bool) (*Conn,error, bool) {
 	var localAddr = conn.LocalAddr()
 	key := "remote:" + remoteAddr.String() + "|" + "local:" + localAddr.String()
 	v, ok := s.connMap.Load(key)
@@ -21,19 +41,23 @@ func (s *connStore) getConn(conn *net.UDPConn, remoteAddr net.Addr, isClient boo
 		gp := NewGroupConn(remoteAddr, localAddr)
 		s.connMap.Store(key, gp)
 		if isClient {
-			return gp.GetOrCreateClient(conn), true
+			conn,err:=gp.GetOrCreateClient(conn)
+			return conn,err, true
 		} else {
-			return gp.GetOrCreateClient(conn), true
+			conn:=gp.GetOrCreateServer(conn)
+			return conn,nil, true
 		}
-	}else{
+	} else {
 		gp := v.(*GroupConn)
 		if isClient {
-			return gp.GetOrCreateClient(conn), true
+			conn,err:=gp.GetOrCreateClient(conn)
+			return conn,err, true
 		} else {
-			return gp.GetOrCreateClient(conn), true
+			conn:=gp.GetOrCreateServer(conn)
+			return conn,nil, true
 		}
 	}
-	return nil, false
+	return nil,nil, false
 
 }
 
@@ -51,12 +75,43 @@ type GroupConn struct {
 func NewGroupConn(remoteAddr net.Addr, localAddr net.Addr) *GroupConn {
 	return &GroupConn{remoteAddr: remoteAddr, localAddr: localAddr}
 }
-func (group *GroupConn) GetOrCreateClient(conn *net.UDPConn) *Conn {
+func (group *GroupConn) Write(data []byte) (*Conn, bool) {
+
+	group.handlePacket(data)
+
+	return nil, false
+}
+func (group *GroupConn) handlePacket(data []byte) error {
+	log.Info("读取数据 handlePacket",wire.ConnectionID(data))
+	header, err := wire.ParsePacket(data)
+	if err != nil {
+		return err
+	}
+	var pack = &receivedPacket{data: data, rcvTime: time.Now(), header: header}
+	if header.IsLongHeader {
+		switch header.Type {
+		case wire.PacketTypeRetry:
+			{
+				client := group.client
+				if client != nil {
+					client.push(pack)
+				}
+			}
+		}
+	}
+	return nil
+
+}
+
+func (group *GroupConn) GetOrCreateClient(conn *net.UDPConn) (*Conn, error) {
 	if group.client == nil {
 		group.client = newConn(group.remoteAddr, group.localAddr, true, conn)
-		group.client.Initial()
+		err := group.client.run()
+		if err != nil {
+			return nil, err
+		}
 	}
-	return group.client
+	return group.client, nil
 }
 func (group *GroupConn) GetOrCreateServer(conn *net.UDPConn) *Conn {
 
@@ -74,71 +129,130 @@ func (group *GroupConn) LocalAddr() net.Addr {
 }
 
 type Conn struct {
-	queue      *queue.VQueue
-	buffer     *bytes.Buffer
-	conn       *net.UDPConn
-	IsClient   bool
-	remoteAddr net.Addr
-	localAddr  net.Addr
+	queue             *queue.VQueue
+	buffer            *bytes.Buffer
+	conn              *net.UDPConn
+	IsClient          bool
+	remoteAddr        net.Addr
+	localAddr         net.Addr
+	desConnectionID   wire.ConnectionID
+	handShakeComplete bool
+	handShakeProgress wire.HandShakeProgress
+	handShakePacket   chan *receivedPacket
+	PacketNum wire.ByteCount
 }
 
-func (c *Conn) push(data []byte) {
-	c.queue.Offer(data)
+func (c *Conn) push(packet *receivedPacket) {
+
+	if c.handShakeComplete{
+
+	}
+
+	c.queue.Offer(packet)
 }
 
 func (c *Conn) Read(p []byte) (n int, err error) {
-	alen := len(p)
-	var start = 0
-	if c.buffer.Len() > 0 {
-		start, _ = c.buffer.Read(p)
-		if start == alen {
-			return start, err
-		}
-	}
-	rDataLen := alen - start
-	data, _ := c.queue.Poll()
-	if data == nil {
-		return 0, io.EOF
-	}
-	rData, _ := data.([]byte)
-	rLen := len(rData)
-	if rDataLen >= rLen {
-		copy(p[start:], rData)
-		return start + rLen, nil
-	}
-	copy(p[start:], rData[0:rDataLen])
-	c.buffer.Write(rData[rDataLen:])
-	return alen, nil
+	//alen := len(p)
+	//var start = 0
+	//if c.buffer.Len() > 0 {
+	//	start, _ = c.buffer.Read(p)
+	//	if start == alen {
+	//		return start, err
+	//	}
+	//}
+	//rDataLen := alen - start
+	//data, _ := c.queue.Poll()
+	//if data == nil {
+	//	return 0, io.EOF
+	//}
+	//rData, _ := data.([]byte)
+	//rLen := len(rData)
+	//if rDataLen >= rLen {
+	//	copy(p[start:], rData)
+	//	return start + rLen, nil
+	//}
+	//copy(p[start:], rData[0:rDataLen])
+	//c.buffer.Write(rData[rDataLen:])
+	return 0, nil
 }
 func (c *Conn) Write(p []byte) (n int, err error) {
-	log.Info("写数据：",p," ",c.remoteAddr)
 	return c.conn.WriteTo(p, c.remoteAddr)
 }
 func newConn(remoteAddr net.Addr, localAddr net.Addr, isClient bool, conn *net.UDPConn) *Conn {
-	return &Conn{queue: queue.NewVQueue(), remoteAddr: remoteAddr, localAddr: localAddr, buffer: new(bytes.Buffer), conn: conn, IsClient: isClient}
+	c := &Conn{queue: queue.NewVQueue(), remoteAddr: remoteAddr, localAddr: localAddr, buffer: new(bytes.Buffer), conn: conn, IsClient: isClient, handShakeComplete: false}
+	c.handShakePacket = make(chan *receivedPacket)
+	c.PacketNum = 0
+	return c
+}
+
+func (c *Conn) readBuffer() {
+	 func() {
+		for {
+			rev, _ := c.queue.Poll()
+			rcp := rev.(*receivedPacket)
+			if rcp.header.IsLongHeader {
+				err := c.handleLongPacket(rcp)
+				if err != nil {
+					break
+				}
+			}
+		}
+	}()
+}
+func (c *Conn) handleLongPacket(rcp *receivedPacket) error {
+	if !c.handShakeComplete {
+		c.handShakePacket <- rcp
+	}
+	return nil
+}
+func (c *Conn) run() error {
+	go c.readBuffer()
+	return c.Initial()
 }
 
 func (c *Conn) Initial() error {
-	if c.IsClient{
-		//log.Info("!!!写数据")
-		//data:=make([]byte,MaxPacketBufferSize)
-		//f,_:=file.NewFile("C:\\Users\\cooge\\Documents\\quic\\Initial4.bin")
-		//n,_:=f.ReadBytes(data)
-		////connId, err := GenerateConnectionID(16)
-		////if err != nil {
-		////	return err
-		////}
-		////pack := Initial(connId)
-		////data := pack.Bytes()
-		//num,err := c.Write(data[0:n])
-		//log.Info(num," ",err)
+	log.Info("发送Initial")
+	if c.IsClient {
 
-		connId:=[]byte{0x8c,0x07,0x0c,0x38,0x6e,0xf8,0xef,0x21,0x9c,0x6d,0xba,0x73,0xed,0xa7,0x4f}
-		pack:=Initial(connId)
-		data:=pack.Bytes()
-		log.Info(ConnectionID(data))
-		_,err := c.Write(data)
-		return err
+		desConnectionID, err := wire.GenerateConnectionID(16)
+		if err != nil {
+			return err
+		}
+		initialParameter:=&wire.InitialParameter{}
+		initialParameter.ConnectionID  = desConnectionID
+		initialParameter.PacketType = wire.PacketTypeInitial
+		initialParameter.PacketNum = c.PacketNum
+		initialParameter.Token = []byte{}
+		initialParameter.Random,_ = util.RandId(32)
+
+		pack := wire.Initial(initialParameter)
+		data := pack.Bytes()
+		log.Info("=====",wire.ConnectionID(data))
+		_, err1 := c.Write(data)
+		c.handShakeProgress = wire.WaitRetry
+		retryPacket := <-c.handShakePacket
+		if retryPacket.header.IsLongHeader && retryPacket.header.Type == wire.PacketTypeRetry {
+			if wire.HandleRetryPacket(retryPacket.data,initialParameter.ConnectionID) {
+				c.PacketNum++
+				token :=retryPacket.data[retryPacket.header.ParsedLen:len(retryPacket.data)-16]
+				log.Info("token:",wire.ConnectionID(token))
+				initialParameter.Token = token
+				initialParameter.PacketNum = c.PacketNum
+				initialParameter.ConnectionID = retryPacket.header.SourceConnId
+				pack := wire.Initial(initialParameter)
+				data := pack.Bytes()
+				_, err1 := c.Write(data)
+				if err1!=nil{
+					return err1
+				}
+			} else {
+				log.Info("重试包验证失败")
+				return util.RetryVerifyError
+			}
+		} else {
+			return util.ProtocolError
+		}
+		return err1
 	}
 	return nil
 }

@@ -112,6 +112,9 @@ func (stream *ReadStream) Read3Uint32() (uint32, error) {
 func (stream *ReadStream) ReadByte() (byte, error) {
 	return stream.read_.ReadByte()
 }
+func (stream *ReadStream) ReadUint8() (uint8, error) {
+	return stream.read_.ReadByte()
+}
 
 func (stream *ReadStream) Read(data []byte) (int,error) {
 	return stream.read_.Read(data)

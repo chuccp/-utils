@@ -1,9 +1,9 @@
-package udp
+package wire
 
 import (
 	"bytes"
 	"github.com/chuccp/utils/io"
-	"github.com/chuccp/utils/log"
+	"github.com/chuccp/utils/udp/util"
 )
 
 type messageType uint8
@@ -26,15 +26,14 @@ type Crypto struct {
 }
 
 func  NewCrypto(Offset uint32,data []byte)*Crypto  {
-	log.Info("NewCrypto:", len(data),ConnectionID(data))
 	return &Crypto{Offset:Offset,Length: uint32(len(data)),data:data}
 }
 
 func (c *Crypto) Bytes()[]byte  {
 	var buff = new(bytes.Buffer)
 	buff.WriteByte(0x06)
-	buff.Write(VariableLengthBytes(c.Offset))
-	buff.Write(VariableLengthBytes(c.Length))
+	buff.Write(util.VariableLengthBytes(c.Offset))
+	buff.Write(util.VariableLengthBytes(c.Length))
 	buff.Write(c.data)
 	return buff.Bytes()
 }
