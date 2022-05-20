@@ -13,7 +13,30 @@ const (
 
 )
 
-func Extansions() []byte {
+func applicationLayerProtocolNegotiation(buff *bytes.Buffer,nextProtos []string)  {
+
+
+
+	var rBuff =new(bytes.Buffer)
+	for _, v := range nextProtos {
+		rBuff.WriteByte(byte(len(v)))
+		rBuff.Write([]byte(v))
+	}
+
+	buff.WriteByte(0)
+	buff.WriteByte(0x10)
+
+	nLen :=rBuff.Len()
+	rnLen := nLen +2
+	buff.WriteByte(byte(rnLen >> 8))
+	buff.WriteByte(byte(rnLen))
+	buff.WriteByte(byte(nLen >> 8))
+	buff.WriteByte(byte(nLen))
+	buff.Write(rBuff.Bytes())
+
+}
+
+func Extansions(nextProtos []string) []byte {
 	var buff =new(bytes.Buffer)
 	statusRequest :=[]byte{0x00,0x05,0x00,0x05,0x01,0x00,0x00,0x00,0x00}
 	buff.Write(statusRequest)
@@ -25,12 +48,9 @@ func Extansions() []byte {
 	buff.Write(signatureAlgorithms)
 	renegotiationInfo :=[]byte{0xff,0x01,0x00,0x01,0x00}
 	buff.Write(renegotiationInfo)
-	name:=[]byte("quic-echo-example")
-	ns:= util.U16B(uint16(len(name)+3))
-	ns2:= util.U16B(uint16(len(name)+1))
-	alpn:=[]byte{0x00,0x10,ns[0],ns[1],ns2[0],ns2[1],byte(len(name))}
-	applicationLayerProtocolNegotiation := append(alpn, name...)
-	buff.Write(applicationLayerProtocolNegotiation)
+
+	applicationLayerProtocolNegotiation(buff,nextProtos)
+
 	signedCertificateTimestamp :=[]byte{0x00,0x12,0x00,0x00}
 	buff.Write(signedCertificateTimestamp)
 	supportedVersions :=[]byte{0x00,0x2b,0x00,0x03,2,3,4}

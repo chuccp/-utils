@@ -11,19 +11,19 @@ type Config struct {
 }
 
 type Listener struct {
-	conn      *net.UDPConn
+	rawConn   *net.UDPConn
 	connStore *connStore
-	chanConn  chan *Conn
+	chanConn  chan *QuicConn
 }
 
 func (l *Listener) readUDP() {
 	log.Info("开始读取信息")
 	for {
 		data := make([]byte, MaxPacketBufferSize)
-		num, remoteAddr, err := l.conn.ReadFromUDP(data)
+		num, remoteAddr, err := l.rawConn.ReadFromUDP(data)
 		log.Info("读取数据",num,remoteAddr,err)
 		if err == nil {
-			groupConn := l.connStore.getGroup(l.conn, remoteAddr)
+			groupConn := l.connStore.getGroup(l.rawConn, remoteAddr)
 			conn, flag := groupConn.Write(data[:num])
 			if flag {
 				l.chanConn <- conn
@@ -35,19 +35,19 @@ func (l *Listener) readUDP() {
 	l.chanConn <- nil
 }
 
-func (l *Listener) Accept() (*Conn, error) {
+func (l *Listener) Accept() (*QuicConn, error) {
 	c := <-l.chanConn
 	if c == nil {
 		return nil, io.EOF
 	}
 	return c, nil
 }
-func (l *Listener) GetClientConn(address string) (*Conn, error) {
+func (l *Listener) GetClientConn(address string) (*QuicConn, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {
 		return nil, err
 	}
-	conn, err, flag := l.connStore.getConn(l.conn, udpAddr, true)
+	conn, err, flag := l.connStore.getConn(l.rawConn, udpAddr, true)
 	if err != nil {
 		return nil, err
 	}
@@ -59,8 +59,8 @@ func (l *Listener) GetClientConn(address string) (*Conn, error) {
 }
 
 func newListener(conn *net.UDPConn) *Listener {
-	chanConn := make(chan *Conn)
-	listener:= &Listener{conn: conn, connStore: newConnStore(), chanConn: chanConn}
+	chanConn := make(chan *QuicConn)
+	listener:= &Listener{rawConn: conn, connStore: newConnStore(), chanConn: chanConn}
 	go listener.readUDP()
 	return listener
 }

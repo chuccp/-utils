@@ -131,7 +131,7 @@ func NewClientHello(random []byte) *ClientHello {
 func (c *ClientHello) SetLength(data []byte)  {
 	c.Length = uint32(data[0])<<16 | uint32(data[1])<<8 | uint32(data[2])
 }
-func (c *ClientHello)Bytes()[]byte{
+func (c *ClientHello)Bytes(nextProtos []string)[]byte{
 	var buff = new(bytes.Buffer)
 	buff.Write(c.Version)
 	buff.Write(c.Random)
@@ -140,7 +140,7 @@ func (c *ClientHello)Bytes()[]byte{
 	buff.Write(c.CiphersSuites)
 	buff.WriteByte(1)
 	buff.WriteByte(0)
-	ex:=Extansions()
+	ex:=Extansions(nextProtos)
 	buff.Write(util.U16B(uint16(len(ex))))
 	buff.Write(ex)
 	var buff1 = new(bytes.Buffer)

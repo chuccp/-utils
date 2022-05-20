@@ -14,6 +14,7 @@ type InitialParameter struct {
 	PacketNum    ByteCount
 	Random       []byte
 	PacketType   PacketType
+	NextProtos   []string
 
 }
 
@@ -128,7 +129,7 @@ func LongHeaderPacket(initialParameter *InitialParameter)*LongHeaderPackage  {
 	binary.BigEndian.PutUint64(pn, uint64(initialParameter.PacketNum))
 	pn = pn[8-packetNumberLength:]
 	ch:= NewClientHello(initialParameter.Random)
-	dl:=ch.Bytes()
+	dl:=ch.Bytes(initialParameter.NextProtos)
 	crypto:=NewCrypto(0, dl)
 	tokenLen := len(initialParameter.Token)
 	return &LongHeaderPackage{

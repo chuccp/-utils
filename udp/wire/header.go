@@ -2,6 +2,7 @@ package wire
 
 import (
 	"github.com/chuccp/utils/io"
+	"os"
 )
 
 
@@ -47,8 +48,12 @@ func (header *Header) HandleLongHeader(read *io.ReadStream) error {
 		header.ParsedLen = ByteCount(header.sourceConnIdLen + 1 + header.desConnIdLen + 1 + 5)
 	}
 	return nil
-
 }
+
+
+
+
+
 func (header *Header) ReadConnectionId(read *io.ReadStream) (err error) {
 
 	if header.desConnIdLen, err = read.ReadByte(); err != nil {
@@ -74,6 +79,15 @@ func (header *Header) ReadConnectionId(read *io.ReadStream) (err error) {
 	return nil
 
 }
+
+func ParseFileHeader(path string)(header *Header, err error)  {
+	file,err:=os.Open(path)
+	if err!=nil{
+		return nil, err
+	}
+	return ParseHeader(io.NewReadStream(file))
+}
+
 func ParseHeader(read *io.ReadStream) (header *Header, err error) {
 	header = &Header{}
 	header.TypeByte, err = read.ReadByte()

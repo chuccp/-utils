@@ -33,31 +33,31 @@ func (s *connStore) getGroup(conn *net.UDPConn, remoteAddr net.Addr) *GroupConn 
 	return v.(*GroupConn)
 }
 
-func (s *connStore) getConn(conn *net.UDPConn, remoteAddr net.Addr, isClient bool) (*Conn,error, bool) {
-	var localAddr = conn.LocalAddr()
+func (s *connStore) getConn(rawConn *net.UDPConn, remoteAddr net.Addr, isClient bool) (*QuicConn, error, bool) {
+	var localAddr = rawConn.LocalAddr()
 	key := "remote:" + remoteAddr.String() + "|" + "local:" + localAddr.String()
 	v, ok := s.connMap.Load(key)
 	if !ok {
 		gp := NewGroupConn(remoteAddr, localAddr)
 		s.connMap.Store(key, gp)
 		if isClient {
-			conn,err:=gp.GetOrCreateClient(conn)
-			return conn,err, true
+			conn, err := gp.GetOrCreateClient(rawConn)
+			return conn, err, true
 		} else {
-			conn:=gp.GetOrCreateServer(conn)
-			return conn,nil, true
+			conn := gp.GetOrCreateServer(rawConn)
+			return conn, nil, true
 		}
 	} else {
 		gp := v.(*GroupConn)
 		if isClient {
-			conn,err:=gp.GetOrCreateClient(conn)
-			return conn,err, true
+			conn, err := gp.GetOrCreateClient(rawConn)
+			return conn, err, true
 		} else {
-			conn:=gp.GetOrCreateServer(conn)
-			return conn,nil, true
+			conn := gp.GetOrCreateServer(rawConn)
+			return conn, nil, true
 		}
 	}
-	return nil,nil, false
+	return nil, nil, false
 
 }
 
@@ -66,8 +66,8 @@ func newConnStore() *connStore {
 }
 
 type GroupConn struct {
-	client     *Conn
-	server     *Conn
+	client     *QuicConn
+	server     *QuicConn
 	remoteAddr net.Addr
 	localAddr  net.Addr
 }
@@ -75,14 +75,14 @@ type GroupConn struct {
 func NewGroupConn(remoteAddr net.Addr, localAddr net.Addr) *GroupConn {
 	return &GroupConn{remoteAddr: remoteAddr, localAddr: localAddr}
 }
-func (group *GroupConn) Write(data []byte) (*Conn, bool) {
+func (group *GroupConn) Write(data []byte) (*QuicConn, bool) {
 
 	group.handlePacket(data)
 
 	return nil, false
 }
 func (group *GroupConn) handlePacket(data []byte) error {
-	log.Info("读取数据 handlePacket",wire.ConnectionID(data))
+	log.Info("读取数据 handlePacket ", wire.ConnectionID(data))
 	header, err := wire.ParsePacket(data)
 	if err != nil {
 		return err
@@ -97,13 +97,18 @@ func (group *GroupConn) handlePacket(data []byte) error {
 					client.push(pack)
 				}
 			}
+		case wire.PacketTypeInitial:
+			{
+
+			}
+
 		}
 	}
 	return nil
 
 }
 
-func (group *GroupConn) GetOrCreateClient(conn *net.UDPConn) (*Conn, error) {
+func (group *GroupConn) GetOrCreateClient(conn *net.UDPConn) (*QuicConn, error) {
 	if group.client == nil {
 		group.client = newConn(group.remoteAddr, group.localAddr, true, conn)
 		err := group.client.run()
@@ -113,10 +118,10 @@ func (group *GroupConn) GetOrCreateClient(conn *net.UDPConn) (*Conn, error) {
 	}
 	return group.client, nil
 }
-func (group *GroupConn) GetOrCreateServer(conn *net.UDPConn) *Conn {
+func (group *GroupConn) GetOrCreateServer(rawConn *net.UDPConn) *QuicConn {
 
 	if group.server == nil {
-		group.server = newConn(group.remoteAddr, group.localAddr, false, conn)
+		group.server = newConn(group.remoteAddr, group.localAddr, false, rawConn)
 	}
 
 	return group.server
@@ -128,7 +133,7 @@ func (group *GroupConn) LocalAddr() net.Addr {
 	return group.localAddr
 }
 
-type Conn struct {
+type QuicConn struct {
 	queue             *queue.VQueue
 	buffer            *bytes.Buffer
 	conn              *net.UDPConn
@@ -139,19 +144,19 @@ type Conn struct {
 	handShakeComplete bool
 	handShakeProgress wire.HandShakeProgress
 	handShakePacket   chan *receivedPacket
-	PacketNum wire.ByteCount
+	PacketNum         wire.ByteCount
 }
 
-func (c *Conn) push(packet *receivedPacket) {
+func (c *QuicConn) push(packet *receivedPacket) {
 
-	if c.handShakeComplete{
+	if c.handShakeComplete {
 
 	}
 
 	c.queue.Offer(packet)
 }
 
-func (c *Conn) Read(p []byte) (n int, err error) {
+func (c *QuicConn) Read(p []byte) (n int, err error) {
 	//alen := len(p)
 	//var start = 0
 	//if c.buffer.Len() > 0 {
@@ -175,18 +180,24 @@ func (c *Conn) Read(p []byte) (n int, err error) {
 	//c.buffer.Write(rData[rDataLen:])
 	return 0, nil
 }
-func (c *Conn) Write(p []byte) (n int, err error) {
+func (c *QuicConn) Write(p []byte) (n int, err error) {
 	return c.conn.WriteTo(p, c.remoteAddr)
 }
-func newConn(remoteAddr net.Addr, localAddr net.Addr, isClient bool, conn *net.UDPConn) *Conn {
-	c := &Conn{queue: queue.NewVQueue(), remoteAddr: remoteAddr, localAddr: localAddr, buffer: new(bytes.Buffer), conn: conn, IsClient: isClient, handShakeComplete: false}
+func newConn(remoteAddr net.Addr, localAddr net.Addr, isClient bool, rawConn *net.UDPConn) *QuicConn {
+	c := &QuicConn{queue: queue.NewVQueue(),
+		remoteAddr:        remoteAddr,
+		localAddr:         localAddr,
+		buffer:            new(bytes.Buffer),
+		conn:              rawConn,
+		IsClient:          isClient,
+		handShakeComplete: false}
 	c.handShakePacket = make(chan *receivedPacket)
 	c.PacketNum = 0
 	return c
 }
 
-func (c *Conn) readBuffer() {
-	 func() {
+func (c *QuicConn) readBuffer() {
+	func() {
 		for {
 			rev, _ := c.queue.Poll()
 			rcp := rev.(*receivedPacket)
@@ -199,18 +210,18 @@ func (c *Conn) readBuffer() {
 		}
 	}()
 }
-func (c *Conn) handleLongPacket(rcp *receivedPacket) error {
+func (c *QuicConn) handleLongPacket(rcp *receivedPacket) error {
 	if !c.handShakeComplete {
 		c.handShakePacket <- rcp
 	}
 	return nil
 }
-func (c *Conn) run() error {
+func (c *QuicConn) run() error {
 	go c.readBuffer()
 	return c.Initial()
 }
 
-func (c *Conn) Initial() error {
+func (c *QuicConn) Initial() error {
 	log.Info("发送Initial")
 	if c.IsClient {
 
@@ -218,31 +229,31 @@ func (c *Conn) Initial() error {
 		if err != nil {
 			return err
 		}
-		initialParameter:=&wire.InitialParameter{}
-		initialParameter.ConnectionID  = desConnectionID
+		initialParameter := &wire.InitialParameter{}
+		initialParameter.ConnectionID = desConnectionID
 		initialParameter.PacketType = wire.PacketTypeInitial
 		initialParameter.PacketNum = c.PacketNum
 		initialParameter.Token = []byte{}
-		initialParameter.Random,_ = util.RandId(32)
-
+		initialParameter.Random, _ = util.RandId(32)
+		initialParameter.NextProtos = []string{"quic-echo-example", "cooge"}
 		pack := wire.Initial(initialParameter)
 		data := pack.Bytes()
-		log.Info("=====",wire.ConnectionID(data))
+		log.Info("=====", wire.ConnectionID(data))
 		_, err1 := c.Write(data)
 		c.handShakeProgress = wire.WaitRetry
 		retryPacket := <-c.handShakePacket
 		if retryPacket.header.IsLongHeader && retryPacket.header.Type == wire.PacketTypeRetry {
-			if wire.HandleRetryPacket(retryPacket.data,initialParameter.ConnectionID) {
+			if wire.HandleRetryPacket(retryPacket.data, initialParameter.ConnectionID) {
 				c.PacketNum++
-				token :=retryPacket.data[retryPacket.header.ParsedLen:len(retryPacket.data)-16]
-				log.Info("token:",wire.ConnectionID(token))
+				token := retryPacket.data[retryPacket.header.ParsedLen : len(retryPacket.data)-16]
+				log.Info("token:", wire.ConnectionID(token))
 				initialParameter.Token = token
 				initialParameter.PacketNum = c.PacketNum
 				initialParameter.ConnectionID = retryPacket.header.SourceConnId
 				pack := wire.Initial(initialParameter)
 				data := pack.Bytes()
 				_, err1 := c.Write(data)
-				if err1!=nil{
+				if err1 != nil {
 					return err1
 				}
 			} else {
