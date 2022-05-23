@@ -13,13 +13,8 @@ type WriteFile struct {
 	t       *time.Time
 	file *os.File
 	path string
-
 	line uint64
 	size uint64
-
-	prePath string
-
-
 }
 
 func NewWriteFile(fileCut *cut) *WriteFile {
@@ -63,6 +58,10 @@ func (wf *WriteFile) getOut(path string) (file *os.File, err error) {
 	if wf.path == path {
 		if file != nil {
 			return file, nil
+		}
+	}else{
+		if len(wf.path)>0{
+			wf.file.Close()
 		}
 	}
 	ii := filepath.Dir(path)
