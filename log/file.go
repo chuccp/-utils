@@ -17,16 +17,12 @@ type WriteFile struct {
 
 }
 
-func NewWriteFile(filePattern string) (*WriteFile, error) {
+func NewWriteFile(fileCut *cut) *WriteFile {
 	var wf WriteFile
-	cut, err := parse(filePattern)
-	if err != nil {
-		return nil, err
-	}
-	wf.fileCut = cut
+	wf.fileCut = fileCut
 	wf.line  = 0
 	wf.size = 0
-	return &wf, nil
+	return &wf
 }
 
 func (wf *WriteFile)WriteLog(entry *Entry)error{

@@ -48,7 +48,6 @@ type Logger struct {
 	config    *Config
 	queue     *queue.Queue
 	fileQueue *queue.Queue
-
 }
 
 func New() *Logger {
@@ -71,19 +70,15 @@ func (logger *Logger) printLog() {
 		freeEntry(p)
 	}
 }
-func (logger *Logger) printFileLog() (err error) {
+func (logger *Logger) printLevelMapFileLog(fileCut *cut) (err error) {
 	var writeFileMap = make(map[Level]*WriteFile)
-
 	for {
 		v, _ := logger.fileQueue.Poll()
 		p := v.(*Entry)
-		if writeFileMap[p.Level]==nil{
-			writeFileMap[p.Level],err = NewWriteFile(logger.config.filePattern)
-			if err!=nil{
-				return err
-			}
+		if writeFileMap[p.Level] == nil {
+			writeFileMap[p.Level] = NewWriteFile(fileCut)
 		}
-		outFile :=writeFileMap[p.Level]
+		outFile := writeFileMap[p.Level]
 		err := outFile.fileTo(p.now, p.Level)
 		if err != nil {
 			return err
@@ -93,6 +88,37 @@ func (logger *Logger) printFileLog() (err error) {
 			return err
 		}
 		freeEntry(p)
+	}
+}
+func (logger *Logger) printLevelSingleFileLog(fileCut *cut) (err error) {
+
+	outFile := NewWriteFile(fileCut)
+
+	for {
+		v, _ := logger.fileQueue.Poll()
+		p := v.(*Entry)
+
+		err := outFile.fileTo(p.now, p.Level)
+		if err != nil {
+			return err
+		}
+		outFile.WriteLog(p)
+		if err != nil {
+			return err
+		}
+		freeEntry(p)
+	}
+}
+
+func (logger *Logger) printFileLog() (err error) {
+	cut, err := parse(logger.config.filePattern)
+	if err != nil {
+		return err
+	}
+	if cut.hasLevel {
+		return logger.printLevelMapFileLog(cut)
+	} else {
+		return logger.printLevelSingleFileLog(cut)
 	}
 }
 func (logger *Logger) Info(format string, args ...interface{}) {

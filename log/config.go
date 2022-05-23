@@ -34,10 +34,6 @@ ${level}日志类型
 哪一个条件先达到就以那一条件为准切割
 */
 func (config *Config) AddFileConfig(filePattern string, level Level)error {
-	//fOut, err := NewWriteFile(filePattern)
-	//if err!=nil{
-	//	return err
-	//}
 	config.filePattern = filePattern
 	config.fileLevel = level
 	return nil
