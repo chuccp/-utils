@@ -2,8 +2,8 @@ package log
 
 import (
 	"github.com/chuccp/utils/queue"
-	log2 "log"
 	"os"
+	"sync/atomic"
 	"time"
 )
 
@@ -48,17 +48,12 @@ type Logger struct {
 	config    *Config
 	queue     *queue.Queue
 	fileQueue *queue.Queue
+	fileLogInit int32
+	logInit int32
 }
 
 func New() *Logger {
-	log := &Logger{config: defaultConfig, queue: queue.NewQueue(), fileQueue: queue.NewQueue()}
-	go log.printLog()
-	go func() {
-		err := log.printFileLog()
-		if err != nil {
-			log2.Panic(err)
-		}
-	}()
+	log := &Logger{config: defaultConfig, queue: queue.NewQueue(), fileQueue: queue.NewQueue(),fileLogInit:0,logInit:0}
 	return log
 }
 func (logger *Logger) printLog() {
@@ -91,13 +86,10 @@ func (logger *Logger) printLevelMapFileLog(fileCut *cut) (err error) {
 	}
 }
 func (logger *Logger) printLevelSingleFileLog(fileCut *cut) (err error) {
-
 	outFile := NewWriteFile(fileCut)
-
 	for {
 		v, _ := logger.fileQueue.Poll()
 		p := v.(*Entry)
-
 		err := outFile.fileTo(p.now, p.Level)
 		if err != nil {
 			return err
@@ -110,15 +102,15 @@ func (logger *Logger) printLevelSingleFileLog(fileCut *cut) (err error) {
 	}
 }
 
-func (logger *Logger) printFileLog() (err error) {
+func (logger *Logger) printFileLog(){
 	cut, err := parse(logger.config.filePattern)
 	if err != nil {
-		return err
+		//return err
 	}
 	if cut.hasLevel {
-		return logger.printLevelMapFileLog(cut)
+		 logger.printLevelMapFileLog(cut)
 	} else {
-		return logger.printLevelSingleFileLog(cut)
+		 logger.printLevelSingleFileLog(cut)
 	}
 }
 func (logger *Logger) Info(format string, args ...interface{}) {
@@ -144,11 +136,19 @@ func (logger *Logger) log(level Level, format string, args ...interface{}) {
 	if logger.config.level >= level || logger.config.fileLevel >= level {
 		now := time.Now()
 		if logger.config.level >= level {
+
+			if atomic.CompareAndSwapInt32(&logger.logInit,0,1){
+				go logger.printLog()
+			}
+
 			p := newEntry(logger.config, level, &now)
 			p.Log(format, args...)
 			logger.queue.Offer(p)
 		}
 		if logger.config.fileLevel >= level {
+			if atomic.CompareAndSwapInt32(&logger.fileLogInit,0,1){
+				go logger.printFileLog()
+			}
 			p := newEntry(logger.config, level, &now)
 			p.Log(format, args...)
 			logger.fileQueue.Offer(p)

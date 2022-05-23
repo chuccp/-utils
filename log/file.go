@@ -2,6 +2,9 @@ package log
 
 import (
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -13,6 +16,8 @@ type WriteFile struct {
 
 	line uint64
 	size uint64
+
+	prePath string
 
 
 }
@@ -32,14 +37,55 @@ func (wf *WriteFile)WriteLog(entry *Entry)error{
 	return err
 }
 
+func (wf *WriteFile) getPath(time *time.Time, level Level) (path string, flag bool) {
+	ti := wf.fileCut.timeCut.parse(time)
+	if ti == wf.fileCut.ctime {
+		flag = false
+	} else {
+		wf.fileCut.ctime = ti
+		flag = true
+	}
+	path = strings.ReplaceAll(wf.fileCut.path, "${TIME}", ti)
+	if wf.fileCut.line > 0 {
+		line := (wf.line / wf.fileCut.line) * wf.fileCut.line
+		path = strings.ReplaceAll(path, "${LINE}", strconv.FormatUint(line, 10))
+	}
+	if wf.fileCut.size > 0 {
+		size := (wf.size / wf.fileCut.size) * wf.fileCut.size
+		path = strings.ReplaceAll(path, "${SIZE}", strconv.FormatUint(size, 10))
+	}
+	if wf.fileCut.hasLevel {
+		path = strings.ReplaceAll(path, "${LEVEL}", level.Level())
+	}
+	return path,flag
+}
+func (wf *WriteFile) getOut(path string) (file *os.File, err error) {
+	if wf.path == path {
+		if file != nil {
+			return file, nil
+		}
+	}
+	ii := filepath.Dir(path)
+	err = os.MkdirAll(ii, 0777)
+	if err != nil {
+		return nil, err
+	}
+	file, err = os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0777)
+	if err != nil {
+		return nil, err
+	}
+	wf.file = file
+	wf.path = path
+	return
+}
 
 func (wf *WriteFile) fileTo(t *time.Time, level Level) error {
-	path,flag:=wf.fileCut.getPath(t, wf.line, wf.size, level)
+	path,flag:=wf.getPath(t, level)
 	if flag{
 		wf.size = 0
 		wf.line = 0
 	}
-	file, err := wf.fileCut.getOut(path)
+	file, err := wf.getOut(path)
 	if err != nil {
 		return  err
 	}

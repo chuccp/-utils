@@ -3,7 +3,6 @@ package log
 import (
 	"bytes"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -92,48 +91,6 @@ type cut struct {
 	file     *os.File
 	path     string
 	ctime    string
-}
-
-func (cut *cut) getPath(time *time.Time, line uint64, size uint64, level Level) (path string, flag bool) {
-	ti := cut.timeCut.parse(time)
-	if ti == cut.ctime {
-		flag = false
-	} else {
-		cut.ctime = ti
-		flag = true
-	}
-	path = strings.ReplaceAll(cut.path, "${TIME}", ti)
-	if cut.line > 0 {
-		line = (line / cut.line) * cut.line
-		path = strings.ReplaceAll(path, "${LINE}", strconv.FormatUint(line, 10))
-	}
-	if cut.size > 0 {
-		size = (size / cut.size) * cut.size
-		path = strings.ReplaceAll(path, "${SIZE}", strconv.FormatUint(size, 10))
-	}
-	if cut.hasLevel {
-		path = strings.ReplaceAll(path, "${LEVEL}", level.Level())
-	}
-	return path,flag
-}
-func (cut *cut) getOut(path string) (file *os.File, err error) {
-	if cut.path == path {
-		if file != nil {
-			return file, nil
-		}
-	}
-	ii := filepath.Dir(path)
-	err = os.MkdirAll(ii, 0777)
-	if err != nil {
-		return nil, err
-	}
-	file, err = os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0777)
-	if err != nil {
-		return nil, err
-	}
-	cut.file = file
-	cut.path = path
-	return
 }
 func getTimeCut(t string) *TimeCut {
 	var timeCut TimeCut

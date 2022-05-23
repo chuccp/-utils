@@ -33,10 +33,9 @@ ${level}日志类型
 
 哪一个条件先达到就以那一条件为准切割
 */
-func (config *Config) AddFileConfig(filePattern string, level Level)error {
+func (config *Config) AddFileConfig(filePattern string, level Level) {
 	config.filePattern = filePattern
 	config.fileLevel = level
-	return nil
 }
 
 var defaultConfig = NewConfig(defaultFormatter)
