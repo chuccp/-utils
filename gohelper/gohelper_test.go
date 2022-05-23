@@ -2,7 +2,6 @@ package gohelper
 
 import (
 	"testing"
-	"time"
 )
 
 func TestName(t *testing.T) {
@@ -11,7 +10,7 @@ func TestName(t *testing.T) {
 		panic("+++++++")
 	})
 	Run(func() {
-		time.Sleep(time.Second)
+		panic("+++++++")
 
 	})
 	println("!!!!!!!!!!!!!")

@@ -2,7 +2,8 @@ package log
 
 import (
 	"github.com/chuccp/utils/queue"
-	"log"
+	log2 "log"
+	"os"
 	"time"
 )
 
@@ -18,106 +19,113 @@ const (
 	TraceLevel
 )
 
+func (l Level) Level() string {
+	if l == PanicLevel {
+		return "panic"
+	}
+	if l == FatalLevel {
+		return "fatal"
+	}
+	if l == ErrorLevel {
+		return "error"
+	}
+	if l == WarnLevel {
+		return "warn"
+	}
+	if l == InfoLevel {
+		return "info"
+	}
+	if l == DebugLevel {
+		return "debug"
+	}
+	if l == TraceLevel {
+		return "trace"
+	}
+	return ""
+}
+
 type Logger struct {
-	config *Config
-	queue  *queue.Queue
+	config    *Config
+	queue     *queue.Queue
+	fileQueue *queue.Queue
+
 }
 
 func New() *Logger {
-	log := &Logger{config: defaultConfig, queue: queue.NewQueue()}
-	go log.init()
+	log := &Logger{config: defaultConfig, queue: queue.NewQueue(), fileQueue: queue.NewQueue()}
+	go log.printLog()
+	go func() {
+		err := log.printFileLog()
+		if err != nil {
+			log2.Panic(err)
+		}
+	}()
 	return log
 }
-func (logger *Logger) init() {
+func (logger *Logger) printLog() {
+	out := os.Stdout
 	for {
 		v, _ := logger.queue.Poll()
 		p := v.(*Entry)
-		p.WriteTo()
+		p.WriteTo(out)
+		freeEntry(p)
+	}
+}
+func (logger *Logger) printFileLog() (err error) {
+	var writeFileMap = make(map[Level]*WriteFile)
+
+	for {
+		v, _ := logger.fileQueue.Poll()
+		p := v.(*Entry)
+		if writeFileMap[p.Level]==nil{
+			writeFileMap[p.Level],err = NewWriteFile(logger.config.filePattern)
+			if err!=nil{
+				return err
+			}
+		}
+		outFile :=writeFileMap[p.Level]
+		err := outFile.fileTo(p.now, p.Level)
+		if err != nil {
+			return err
+		}
+		outFile.WriteLog(p)
+		if err != nil {
+			return err
+		}
 		freeEntry(p)
 	}
 }
 func (logger *Logger) Info(format string, args ...interface{}) {
-	var ti *time.Time
-	if logger.config.level >= InfoLevel {
-		now := time.Now()
-		ti = &now
-		p := newEntry(logger.config, logger.config.Out)
-		p.Log(InfoLevel, &now, format, args...)
-		logger.queue.Offer(p)
-	}
-	logger.writeFile(InfoLevel, ti, format, args...)
+	logger.log(InfoLevel, format, args...)
 }
 func (logger *Logger) Debug(format string, args ...interface{}) {
-	var ti *time.Time
-	if logger.config.level >= DebugLevel {
-		now := time.Now()
-		ti = &now
-		p := newEntry(logger.config, logger.config.Out)
-		p.Log(DebugLevel, &now, format, args...)
-		logger.queue.Offer(p)
-	}
-	logger.writeFile(DebugLevel, ti, format, args...)
+	logger.log(DebugLevel, format, args...)
 }
 func (logger *Logger) Trace(format string, args ...interface{}) {
-	var ti *time.Time
-	if logger.config.level >= TraceLevel {
-		now := time.Now()
-		ti = &now
-		p := newEntry(logger.config, logger.config.Out)
-		p.Log(TraceLevel, &now, format, args...)
-		logger.queue.Offer(p)
-	}
-	logger.writeFile(TraceLevel, ti, format, args...)
+	logger.log(TraceLevel, format, args...)
 }
 func (logger *Logger) Fatal(format string, args ...interface{}) {
-	var ti *time.Time
-	if logger.config.level >= FatalLevel {
-		now := time.Now()
-		ti = &now
-		p := newEntry(logger.config, logger.config.Out)
-		p.Log(FatalLevel, &now, format, args...)
-		logger.queue.Offer(p)
-	}
-	logger.writeFile(FatalLevel, ti, format, args...)
+	logger.log(FatalLevel, format, args...)
 }
 func (logger *Logger) Panic(format string, args ...interface{}) {
-	var ti *time.Time
-	if logger.config.level >= PanicLevel {
-		now := time.Now()
-		ti = &now
-		p := newEntry(logger.config, logger.config.Out)
-		p.Log(PanicLevel, &now, format, args...)
-		logger.queue.Offer(p)
-	}
-	logger.writeFile(PanicLevel, ti, format, args...)
+	logger.log(PanicLevel, format, args...)
 }
 
 func (logger *Logger) Error(format string, args ...interface{}) {
-	var ti *time.Time
-	if logger.config.level >= ErrorLevel {
-		now := time.Now()
-		ti = &now
-		p := newEntry(logger.config, logger.config.Out)
-		p.Log(ErrorLevel, &now, format, args...)
-		logger.queue.Offer(p)
-	}
-	logger.writeFile(ErrorLevel, ti, format, args...)
+	logger.log(ErrorLevel, format, args...)
 }
-
-func (logger *Logger) writeFile(level Level, ti *time.Time, format string, args ...interface{}) {
-	ct := logger.config.levelMap[level]
-	if ct != nil {
-		if ti == nil {
-			now := time.Now()
-			ti = &now
-		}
-		w, err := ct.getOut(ti)
-		if err == nil {
-			p := newEntry(logger.config, w)
-			p.Log(level, ti, format, args...)
+func (logger *Logger) log(level Level, format string, args ...interface{}) {
+	if logger.config.level >= level || logger.config.fileLevel >= level {
+		now := time.Now()
+		if logger.config.level >= level {
+			p := newEntry(logger.config, level, &now)
+			p.Log(format, args...)
 			logger.queue.Offer(p)
-		} else {
-			log.Println(err)
+		}
+		if logger.config.fileLevel >= level {
+			p := newEntry(logger.config, level, &now)
+			p.Log(format, args...)
+			logger.fileQueue.Offer(p)
 		}
 	}
 }

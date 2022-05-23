@@ -12,18 +12,20 @@ type Entry struct {
 	Level  Level
 	Buffer *bytes.Buffer
 	Config *Config
-	out    io.Writer
-
+	now   *time.Time
 }
 
-func (entry *Entry) WriteTo() {
-	entry.Buffer.WriteTo(entry.out)
+func (entry *Entry) WriteTo(w io.Writer)(n int, err error) {
+	n, err =w.Write(entry.Buffer.Bytes())
+	return
 }
-func (entry *Entry) Log(level Level,now   *time.Time, format string, args ...interface{}) {
-
-	tm := now.Format(entry.Config.formatter.TimestampFormat)
+func (entry *Entry) GetLog()string {
+	return entry.Buffer.String()
+}
+func (entry *Entry) Log(format string, args ...interface{}) {
+	tm := entry.now.Format(entry.Config.formatter.TimestampFormat)
 	entry.Buffer.WriteString("time=\"" + tm + "\"")
-	switch level {
+	switch entry.Level {
 	case TraceLevel:
 		entry.Buffer.WriteString(" level=TRACE ")
 	case DebugLevel:
@@ -71,7 +73,6 @@ func (entry *Entry) Log(level Level,now   *time.Time, format string, args ...int
 		fmt.Fprint(entry.Buffer, args...)
 	}
 	entry.Buffer.WriteString("\"\n")
-
 }
 
 var poolEntry = &sync.Pool{
@@ -80,10 +81,11 @@ var poolEntry = &sync.Pool{
 	},
 }
 
-func newEntry(Config *Config, out io.Writer) *Entry {
+func newEntry(Config *Config,level Level, now  *time.Time) *Entry {
 	ele := poolEntry.Get().(*Entry)
 	ele.Config = Config
-	ele.out = out
+	ele.now = now
+	ele.Level = level
 	ele.Buffer.Reset()
 	return ele
 }

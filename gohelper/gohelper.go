@@ -15,14 +15,14 @@ func New() *GoHelper {
 	return &GoHelper{stack: make(chan string),coroutineNum:0}
 }
 func (h *GoHelper)start(){
-	log.Print("新建协程",atomic.AddInt32(&h.coroutineNum,1))
+	log.Print("create new coroutine",atomic.AddInt32(&h.coroutineNum,1))
 
 }
 func (h *GoHelper)end(){
-	log.Print("协程运行结束",atomic.AddInt32(&h.coroutineNum,-1))
+	log.Print("coroutine run end",atomic.AddInt32(&h.coroutineNum,-1))
 }
 func (h *GoHelper)  panic() {
-	log.Print("协程运行异常",atomic.AddInt32(&h.coroutineNum,-1))
+	log.Print("coroutine run error",atomic.AddInt32(&h.coroutineNum,-1))
 	if err := recover(); err != nil {
 		h.stack <- string(debug.Stack())
 	}

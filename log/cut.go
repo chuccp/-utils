@@ -1,7 +1,7 @@
 package log
 
 import (
-	"io"
+	"bytes"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -9,10 +9,19 @@ import (
 	"time"
 )
 
-type TimeCut int
+type TimeCut struct {
+	timeCutFlag timeCutFlag
+	timeFormat  string
+}
+
+func (tc *TimeCut) parse(ti *time.Time) string {
+	return ti.Format(tc.timeFormat)
+}
+
+type timeCutFlag int
 
 const (
-	Second TimeCut = iota
+	Second timeCutFlag = iota
 	Minute
 	Hour
 	Day
@@ -20,9 +29,8 @@ const (
 	Year
 )
 
-type fileCut []string
-
-func (fileCut *fileCut) parse(filePattern string) {
+func SplitPath(filePattern string) []string {
+	var paths = make([]string, 0)
 	end := len(filePattern)
 	cutIndex := 0
 	for i := 0; i < end; {
@@ -56,9 +64,9 @@ func (fileCut *fileCut) parse(filePattern string) {
 			} else {
 				if filePattern[j] == '}' {
 					if cutIndex != start {
-						*fileCut = append(*fileCut, filePattern[cutIndex:start])
+						paths = append(paths, filePattern[cutIndex:start])
 					}
-					*fileCut = append(*fileCut, filePattern[start:j+1])
+					paths = append(paths, filePattern[start:j+1])
 					cutIndex = j + 1
 					i = j
 					flag = false
@@ -70,30 +78,48 @@ func (fileCut *fileCut) parse(filePattern string) {
 		i++
 	}
 	if cutIndex < end-1 {
-		*fileCut = append(*fileCut, filePattern[cutIndex:end])
+		paths = append(paths, filePattern[cutIndex:end])
 	}
+	return paths
 }
 
 type cut struct {
 	//时间切割
-	timeCut  TimeCut
+	timeCut  *TimeCut
 	line     uint64
 	size     uint64
 	hasLevel bool
-	fileCut  fileCut
-	io       io.Writer
+	file     *os.File
 	path     string
+	ctime    string
 }
 
-func (cut *cut) getPath(time *time.Time) string {
-
-	return "log/info.log"
+func (cut *cut) getPath(time *time.Time, line uint64, size uint64, level Level) (path string, flag bool) {
+	ti := cut.timeCut.parse(time)
+	if ti == cut.ctime {
+		flag = false
+	} else {
+		cut.ctime = ti
+		flag = true
+	}
+	path = strings.ReplaceAll(cut.path, "${TIME}", ti)
+	if cut.line > 0 {
+		line = (line / cut.line) * cut.line
+		path = strings.ReplaceAll(path, "${LINE}", strconv.FormatUint(line, 10))
+	}
+	if cut.size > 0 {
+		size = (size / cut.size) * cut.size
+		path = strings.ReplaceAll(path, "${SIZE}", strconv.FormatUint(size, 10))
+	}
+	if cut.hasLevel {
+		path = strings.ReplaceAll(path, "${LEVEL}", level.Level())
+	}
+	return path,flag
 }
-func (cut *cut) getOut(time *time.Time) (io io.Writer, err error) {
-	path := cut.getPath(time)
+func (cut *cut) getOut(path string) (file *os.File, err error) {
 	if cut.path == path {
-		if io != nil {
-			return io, nil
+		if file != nil {
+			return file, nil
 		}
 	}
 	ii := filepath.Dir(path)
@@ -101,49 +127,48 @@ func (cut *cut) getOut(time *time.Time) (io io.Writer, err error) {
 	if err != nil {
 		return nil, err
 	}
-	io, err = os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0777)
+	file, err = os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0777)
 	if err != nil {
 		return nil, err
 	}
-	cut.io = io
+	cut.file = file
 	cut.path = path
 	return
 }
-func getTimeCut(t string) TimeCut {
-
+func getTimeCut(t string) *TimeCut {
+	var timeCut TimeCut
+	timeCut.timeFormat = t
 	if strings.Index(t, "05") > -1 {
-		return Second
+		timeCut.timeCutFlag = Second
 	}
 	if strings.Index(t, "04") > -1 {
-		return Minute
+		timeCut.timeCutFlag = Minute
 	}
 	if strings.Index(t, "15") > -1 {
-		return Hour
+		timeCut.timeCutFlag = Hour
 	}
 	if strings.Index(t, "02") > -1 {
-		return Day
+		timeCut.timeCutFlag = Day
 	}
 	if strings.Index(t, "01") > -1 {
-		return Month
+		timeCut.timeCutFlag = Month
 	}
 	if strings.Index(t, "2006") > -1 {
-		return Year
+		timeCut.timeCutFlag = Year
 	}
-	return -1
+	return &timeCut
 }
 
 func parse(filePattern string) (*cut, error) {
 	var cut cut
-	cut.timeCut = -1
-	cut.fileCut.parse(filePattern)
-	for _, v := range cut.fileCut {
+	fileCut := SplitPath(filePattern)
+	var buffer = new(bytes.Buffer)
+	for _, v := range fileCut {
 		if strings.HasPrefix(v, "${time:") {
 			end := len(v)
 			time := v[7 : end-1]
-			tc := getTimeCut(time)
-			if tc > cut.timeCut {
-				cut.timeCut = tc
-			}
+			cut.timeCut = getTimeCut(time)
+			buffer.WriteString("${TIME}")
 		} else if strings.HasPrefix(v, "${line:") {
 			end := len(v)
 			line := v[7 : end-1]
@@ -152,6 +177,7 @@ func parse(filePattern string) (*cut, error) {
 				return nil, err
 			}
 			cut.line = num
+			buffer.WriteString("${LINE}")
 		} else if strings.HasPrefix(v, "${size:") {
 			end := len(v)
 			size := v[7 : end-1]
@@ -160,9 +186,14 @@ func parse(filePattern string) (*cut, error) {
 				return nil, err
 			}
 			cut.size = num
+			buffer.WriteString("${SIZE}")
 		} else if strings.HasPrefix(v, "${level") {
 			cut.hasLevel = true
+			buffer.WriteString("${LEVEL}")
+		} else {
+			buffer.WriteString(v)
 		}
 	}
+	cut.path = buffer.String()
 	return &cut, nil
 }
