@@ -38,6 +38,12 @@ func (wf *WriteFile) WriteLog(entry *Entry) error {
 	wf.line = wf.line + 1
 	return err
 }
+func (wf *WriteFile) WriteString(log string) error {
+	num, err := wf.file.WriteString(log)
+	wf.size = wf.size + uint64(num)
+	wf.line = wf.line + 1
+	return err
+}
 
 func (wf *WriteFile) getPath(time *time.Time, level Level) (path string, flag bool) {
 	path = wf.fileCut.path

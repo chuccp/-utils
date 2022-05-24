@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"sync/atomic"
 	"time"
 )
@@ -70,6 +71,7 @@ func (logger *Logger) printPanicLog(entry *Entry)(err error) {
 		}
 	}
 	logger.panicLog.WriteLog(entry)
+	logger.panicLog.WriteString(string(debug.Stack()))
 	freeEntry(entry)
 	return nil
 }
