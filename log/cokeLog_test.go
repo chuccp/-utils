@@ -31,8 +31,29 @@ func TestInfo3(t *testing.T) {
 	config.SetLevel(DebugLevel)
 	config.AddFileConfig("log/log.log", DebugLevel)
 
-	Panic("111111111")
+	Panic("=====================")
 
+	Error("=============")
+	Info("=============")
+	Error("=============")
+	Info("=============")
+
+	time.Sleep(time.Second)
+
+	Panic("=====================")
+
+	Error("=============")
+	Info("=============")
+	Error("=============")
+	Info("=============")
+
+	time.Sleep(time.Second)
+
+	Panic("=====================")
+	Error("=============")
+	Info("=============")
+	Error("=============")
+	Info("=============")
 
 	time.Sleep(time.Second)
 

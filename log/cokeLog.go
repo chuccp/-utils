@@ -1,9 +1,11 @@
 package log
 
 import (
+	"fmt"
 	"github.com/chuccp/utils/queue"
 	"log"
 	"os"
+	"runtime"
 	"sync/atomic"
 	"time"
 )
@@ -143,7 +145,7 @@ func (logger *Logger) Fatal(format string, args ...interface{}) {
 }
 func (logger *Logger) Panic(format string, args ...interface{}) {
 	now := time.Now()
-	p := newEntry(logger.config, PanicLevel, &now)
+	p := newEntry(logger.config, PanicLevel, &now,fmt.Sprint(runtime.Caller(2)))
 	p.Log(format, args...)
 	err := logger.printPanicLog(p)
 	if err != nil {
@@ -157,12 +159,10 @@ func (logger *Logger) log(level Level, format string, args ...interface{}) {
 	if logger.config.level >= level || logger.config.fileLevel >= level {
 		now := time.Now()
 		if logger.config.level >= level {
-
 			if atomic.CompareAndSwapInt32(&logger.logInit,0,1){
 				go logger.printLog()
 			}
-
-			p := newEntry(logger.config, level, &now)
+			p := newEntry(logger.config, level, &now,fmt.Sprint(runtime.Caller(3)))
 			p.Log(format, args...)
 			logger.queue.Offer(p)
 		}
@@ -170,7 +170,7 @@ func (logger *Logger) log(level Level, format string, args ...interface{}) {
 			if atomic.CompareAndSwapInt32(&logger.fileLogInit,0,1){
 				go logger.printFileLog()
 			}
-			p := newEntry(logger.config, level, &now)
+			p := newEntry(logger.config, level, &now,fmt.Sprint(runtime.Caller(3)))
 			p.Log(format, args...)
 			logger.fileQueue.Offer(p)
 		}

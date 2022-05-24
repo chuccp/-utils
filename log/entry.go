@@ -12,6 +12,7 @@ type Entry struct {
 	Level  Level
 	Buffer *bytes.Buffer
 	Config *Config
+	codePath string
 	now   *time.Time
 }
 
@@ -72,6 +73,8 @@ func (entry *Entry) Log(format string, args ...interface{}) {
 	} else {
 		fmt.Fprint(entry.Buffer, args...)
 	}
+	entry.Buffer.WriteString("	")
+	entry.Buffer.WriteString(entry.codePath)
 	entry.Buffer.WriteString("\"\n")
 }
 
@@ -81,11 +84,12 @@ var poolEntry = &sync.Pool{
 	},
 }
 
-func newEntry(Config *Config,level Level, now  *time.Time) *Entry {
+func newEntry(Config *Config,level Level, now  *time.Time,codePath string) *Entry {
 	ele := poolEntry.Get().(*Entry)
 	ele.Config = Config
 	ele.now = now
 	ele.Level = level
+	ele.codePath = codePath
 	ele.Buffer.Reset()
 	return ele
 }
