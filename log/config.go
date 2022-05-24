@@ -1,15 +1,15 @@
 package log
 
 type Config struct {
-	level     Level //设置显示等级
-	formatter *LogFormatter
-	fileLevel Level
+	level       Level //设置显示等级
+	formatter   *LogFormatter
+	fileLevel   Level
 	filePattern string
-
+	panicPath   string
 }
 
 func NewConfig(Formatter *LogFormatter) *Config {
-	return &Config{ formatter: Formatter, level: ErrorLevel,fileLevel: ErrorLevel}
+	return &Config{formatter: Formatter, panicPath:"log/panic.log" ,level: ErrorLevel, fileLevel: ErrorLevel}
 }
 func (config *Config) SetLevel(level Level) {
 	config.level = level
@@ -17,7 +17,9 @@ func (config *Config) SetLevel(level Level) {
 func (config *Config) SetFormatter(level Level) {
 	config.level = level
 }
-
+func (config *Config) SetPanicPath(panicPath string) {
+	config.panicPath = panicPath
+}
 
 /*AddFileConfig
 按行数，按日志，按日期 切割

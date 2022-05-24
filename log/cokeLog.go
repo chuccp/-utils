@@ -2,6 +2,7 @@ package log
 
 import (
 	"github.com/chuccp/utils/queue"
+	"log"
 	"os"
 	"sync/atomic"
 	"time"
@@ -50,12 +51,27 @@ type Logger struct {
 	fileQueue *queue.Queue
 	fileLogInit int32
 	logInit int32
+	panicInit int32
+	panicLog *WriteFile
 }
 
 func New() *Logger {
-	log := &Logger{config: defaultConfig, queue: queue.NewQueue(), fileQueue: queue.NewQueue(),fileLogInit:0,logInit:0}
+	log := &Logger{config: defaultConfig, queue: queue.NewQueue(), fileQueue: queue.NewQueue(),fileLogInit:0,logInit:0,panicInit:0}
 	return log
 }
+
+func (logger *Logger) printPanicLog(entry *Entry)(err error) {
+	if atomic.CompareAndSwapInt32(&logger.panicInit,0,1){
+		logger.panicLog,err =NewWrite(logger.config.panicPath)
+		if err!=nil{
+			return err
+		}
+	}
+	logger.panicLog.WriteLog(entry)
+	freeEntry(entry)
+	return nil
+}
+
 func (logger *Logger) printLog() {
 	out := os.Stdout
 	for {
@@ -126,9 +142,14 @@ func (logger *Logger) Fatal(format string, args ...interface{}) {
 	logger.log(FatalLevel, format, args...)
 }
 func (logger *Logger) Panic(format string, args ...interface{}) {
-	logger.log(PanicLevel, format, args...)
+	now := time.Now()
+	p := newEntry(logger.config, PanicLevel, &now)
+	p.Log(format, args...)
+	err := logger.printPanicLog(p)
+	if err != nil {
+		log.Panicln(err)
+	}
 }
-
 func (logger *Logger) Error(format string, args ...interface{}) {
 	logger.log(ErrorLevel, format, args...)
 }

@@ -29,10 +29,12 @@ func TestInfo2(t *testing.T) {
 func TestInfo3(t *testing.T) {
 	config := GetDefaultConfig()
 	config.SetLevel(DebugLevel)
-	config.AddFileConfig("log/${time:2006-01-02-15-04}-${line:2000}-${size:200mb}-${level}.log", DebugLevel)
+	config.AddFileConfig("log/log.log", DebugLevel)
 
-	Error("=============")
-	Info("=============")
+	Panic("111111111")
+
+
+	time.Sleep(time.Second)
 
 	time.Sleep(time.Hour)
 
