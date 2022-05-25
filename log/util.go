@@ -37,3 +37,21 @@ func toNumber(size string) (uint64,error) {
 
 	return uint64(num * v),nil
 }
+func StringToLevel(level string)Level  {
+	if level=="trace" || level=="TRACE"{
+		return TraceLevel
+	}
+	if level=="debug" || level=="DEBUG"{
+		return DebugLevel
+	}
+	if level=="info" || level=="INFO"{
+		return InfoLevel
+	}
+	if level=="error" || level=="ERROR"{
+		return ErrorLevel
+	}
+	if level=="PANIC" || level=="panic"{
+		return PanicLevel
+	}
+	return InfoLevel
+}

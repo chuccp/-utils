@@ -85,7 +85,7 @@ func (wf *WriteFile) getOut(path string) (file *os.File, err error) {
 	if err != nil {
 		return nil, err
 	}
-	file, err = os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0777)
+	file, err = os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 644)
 	if err != nil {
 		return nil, err
 	}
