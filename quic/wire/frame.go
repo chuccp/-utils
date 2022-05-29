@@ -1,17 +1,18 @@
-package udp
+package wire
 
 import (
 	"bytes"
 	"github.com/chuccp/utils/io"
+	"github.com/chuccp/utils/quic/util"
 )
 
 
 
-func ParseFrame(data []byte) (*bytes.Buffer,error){
-	r := io.NewReadStream(bytes.NewReader(data))
+func ParseFrame(data []byte) ([]byte,error){
+	stream := io.NewReadBytesStream(data)
 	cryptoMap:=make(map[uint32]*Crypto)
 	for{
-		b,err:=r.ReadByte()
+		b,err:=stream.ReadByte()
 		if err!=nil{
 			break
 		}
@@ -19,16 +20,16 @@ func ParseFrame(data []byte) (*bytes.Buffer,error){
 			continue
 		}
 		if b==0x06{
-			offset,num:=ReadVariableLength(r)
-			if num==0{
-				return nil,io2.EOF
+			readValue := util.NewReadValue(stream)
+			offset,err:=readValue.ReadVariableValueLength()
+			if err!=nil{
+				return nil,err
 			}
-			len,num:=ReadVariableLength(r)
-			if num==0{
-				return nil,io2.EOF
+			len,err:=readValue.ReadVariableValueLength()
+			if err!=nil{
+				return nil,err
 			}
-
-			data2,err:=r.ReadUintBytes(len)
+			data2,err:=stream.ReadBytes(int(len))
 			if err!=nil{
 				return nil,err
 			}
@@ -45,5 +46,5 @@ func ParseFrame(data []byte) (*bytes.Buffer,error){
 		buff.Write(crypto.data)
 		offset = crypto.Offset+crypto.Length
 	}
-	return nil,nil
+	return buff.Bytes(),nil
 }

@@ -27,6 +27,21 @@ func U32BE(data []byte) uint32 {
 	return num
 }
 
+func U32BE0To4(data []byte,len uint8) uint32 {
+	switch len {
+	case 1:
+		return uint32(data[0])
+	case 2:
+		return uint32(data[0])<<8|uint32(data[1])
+	case 3:
+		return uint32(data[0])<<16|uint32(data[1])<<8|uint32(data[2])
+	case 4:
+		return uint32(data[0])<<24|uint32(data[1])<<16|uint32(data[2])<<8|uint32(data[3])
+	}
+	return 0
+}
+
+
 func millisecond() uint32 {
 	ms := time.Now().UnixNano() / 1e6
 	return uint32(ms)
