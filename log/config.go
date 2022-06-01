@@ -6,13 +6,17 @@ type Config struct {
 	fileLevel   Level
 	filePattern string
 	panicPath   string
+	call bool
 }
 
 func NewConfig(Formatter *LogFormatter) *Config {
-	return &Config{formatter: Formatter, panicPath:"log/panic.log" ,level: ErrorLevel, fileLevel: ErrorLevel}
+	return &Config{formatter: Formatter, panicPath:"log/panic.log" ,level: ErrorLevel, fileLevel: ErrorLevel,call:false}
 }
 func (config *Config) SetLevel(level Level) {
 	config.level = level
+}
+func (config *Config) SetCall(call bool) {
+	config.call = call
 }
 func (config *Config) SetFormatter(level Level) {
 	config.level = level

@@ -49,24 +49,24 @@ func (l Level) Level() string {
 }
 
 type Logger struct {
-	config    *Config
-	queue     *queue.Queue
-	fileQueue *queue.Queue
+	config      *Config
+	queue       *queue.Queue
+	fileQueue   *queue.Queue
 	fileLogInit int32
-	logInit int32
-	panicInit int32
-	panicLog *WriteFile
+	logInit     int32
+	panicInit   int32
+	panicLog    *WriteFile
 }
 
 func New() *Logger {
-	log := &Logger{config: defaultConfig, queue: queue.NewQueue(), fileQueue: queue.NewQueue(),fileLogInit:0,logInit:0,panicInit:0}
+	log := &Logger{config: defaultConfig, queue: queue.NewQueue(), fileQueue: queue.NewQueue(), fileLogInit: 0, logInit: 0, panicInit: 0}
 	return log
 }
 
-func (logger *Logger) printPanicLog(entry *Entry)(err error) {
-	if atomic.CompareAndSwapInt32(&logger.panicInit,0,1){
-		logger.panicLog,err =NewWrite(logger.config.panicPath)
-		if err!=nil{
+func (logger *Logger) printPanicLog(entry *Entry) (err error) {
+	if atomic.CompareAndSwapInt32(&logger.panicInit, 0, 1) {
+		logger.panicLog, err = NewWrite(logger.config.panicPath)
+		if err != nil {
 			return err
 		}
 	}
@@ -122,15 +122,15 @@ func (logger *Logger) printLevelSingleFileLog(fileCut *cut) (err error) {
 	}
 }
 
-func (logger *Logger) printFileLog(){
+func (logger *Logger) printFileLog() {
 	cut, err := parse(logger.config.filePattern)
 	if err != nil {
 		//return err
 	}
 	if cut.hasLevel {
-		 logger.printLevelMapFileLog(cut)
+		logger.printLevelMapFileLog(cut)
 	} else {
-		 logger.printLevelSingleFileLog(cut)
+		logger.printLevelSingleFileLog(cut)
 	}
 }
 func (logger *Logger) Info(format string, args ...interface{}) {
@@ -147,7 +147,7 @@ func (logger *Logger) Fatal(format string, args ...interface{}) {
 }
 func (logger *Logger) Panic(format string, args ...interface{}) {
 	now := time.Now()
-	p := newEntry(logger.config, PanicLevel, &now,fmt.Sprint(runtime.Caller(2)))
+	p := newEntry(logger.config, PanicLevel, &now, fmt.Sprint(runtime.Caller(2)))
 	p.Log(format, args...)
 	err := logger.printPanicLog(p)
 	if err != nil {
@@ -160,19 +160,24 @@ func (logger *Logger) Error(format string, args ...interface{}) {
 func (logger *Logger) log(level Level, format string, args ...interface{}) {
 	if logger.config.level >= level || logger.config.fileLevel >= level {
 		now := time.Now()
+		data := ""
+		if logger.config.call {
+			data = fmt.Sprint(runtime.Caller(3))
+		}
 		if logger.config.level >= level {
-			if atomic.CompareAndSwapInt32(&logger.logInit,0,1){
+			if atomic.CompareAndSwapInt32(&logger.logInit, 0, 1) {
 				go logger.printLog()
 			}
-			p := newEntry(logger.config, level, &now,fmt.Sprint(runtime.Caller(3)))
+			p := newEntry(logger.config, level, &now, data)
 			p.Log(format, args...)
 			logger.queue.Offer(p)
+
 		}
 		if logger.config.fileLevel >= level {
-			if atomic.CompareAndSwapInt32(&logger.fileLogInit,0,1){
+			if atomic.CompareAndSwapInt32(&logger.fileLogInit, 0, 1) {
 				go logger.printFileLog()
 			}
-			p := newEntry(logger.config, level, &now,fmt.Sprint(runtime.Caller(3)))
+			p := newEntry(logger.config, level, &now, data)
 			p.Log(format, args...)
 			logger.fileQueue.Offer(p)
 		}

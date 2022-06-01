@@ -4,7 +4,6 @@ import (
 	"github.com/chuccp/utils/io"
 	"github.com/chuccp/utils/math"
 	"github.com/chuccp/utils/quic/util"
-	"log"
 )
 
 type PacketType uint8
@@ -13,7 +12,7 @@ const (
 	// PacketTypeInitial is the packet type of an Initial packet
 	PacketTypeInitial PacketType = iota
 	// PacketTypeRetry is the packet type of a Retry packet
-	PacketTypeRetry
+	PacketTypeRetry PacketType = 3
 	// PacketTypeHandshake is the packet type of a Handshake packet
 	PacketTypeHandshake
 	// PacketType0RTT is the packet type of a 0-RTT packet
@@ -26,8 +25,6 @@ const (
 	ClientHelloType HandshakeType = 1
 	ServerHelloType HandshakeType = 2
 )
-
-
 
 type ParameterType uint8
 
@@ -49,11 +46,9 @@ type LongPackage struct {
 	PackageNum                    uint32
 	aead                          *AEAD
 	PlayLoad                      []byte
+	RetryToken                    []byte
+	RetryIntegrityTag             []byte
 }
-
-
-
-
 
 type Parameter struct {
 	ParameterType ParameterType
@@ -63,48 +58,50 @@ type Parameter struct {
 type TransportParameters struct {
 	Parameters []Parameter
 }
-func ParseInitialHeader(data []byte) (longPackage *LongPackage, err error) {
+
+func ParseInitialHeader(longPackage *LongPackage, data []byte) (err error) {
 	stream := io.NewReadBytesStream(data)
 	longPackage = &LongPackage{}
 	longPackage.firstByte, err = stream.ReadByte()
-	log.Println("===1", stream.Offset())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	longPackage.Version, err = stream.Read4Uint32()
-	log.Println("===2", stream.Offset())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	readValue := util.NewReadValue(stream)
 	longPackage.DestinationConnectionId, longPackage.DestinationConnectionIdLength, err = readValue.ReadUint8()
-	log.Println("===3", stream.Offset())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	longPackage.SourceConnectionId, longPackage.SourceConnectionIdLength, err = readValue.ReadUint8()
-	log.Println("===4", stream.Offset())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	longPackage.Token, longPackage.TokenLength, err = readValue.ReadUint8()
-	log.Println("===5", stream.Offset())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	longPackage.Length, err = readValue.ReadVariableValueLength()
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 	/**
 	解析packageNum
 	*/
 	offset := stream.Offset()
-	longPackage.aead = NewInitialAEAD(longPackage.DestinationConnectionId)
+
+	if longPackage.DestinationConnectionIdLength > 0 {
+		longPackage.aead = NewInitialAEAD(longPackage.DestinationConnectionId, true)
+	}else{
+		longPackage.aead = NewInitialAEAD(longPackage.SourceConnectionId, false)
+	}
+
 	longPackage.PacketNumberLength, longPackage.PackageNum, err = longPackage.ParsePackageNum(data, offset, uint16(longPackage.Length))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	exLen := offset + uint16(longPackage.PacketNumberLength)
 	additionalData := data[:exLen]
@@ -112,25 +109,15 @@ func ParseInitialHeader(data []byte) (longPackage *LongPackage, err error) {
 	data, err = longPackage.aead.aead.Open([]byte{}, longPackage.aead.iv, ciphertext, additionalData)
 	if err == nil {
 		longPackage.PlayLoad = data
-		return longPackage, nil
+		return nil
 	}
-	return nil, err
+	return err
+
 }
-func ParseInitial(data []byte) (longPackage *LongPackage, err error) {
-	longPackage, err = ParseInitialHeader(data)
-	frame, err := ParseFrame(longPackage.PlayLoad)
-	if err != nil {
-		return nil, err
-	}
+func (longPackage *LongPackage) ParseClientAEAD() {
 
-	_, err = ParseHandshake(frame)
-	if err != nil {
-		return nil, err
-	}
-
-
-	return longPackage, err
 }
+
 func (longPackage *LongPackage) ParsePackageNum(data []byte, offset uint16, length uint16) (byte, uint32, error) {
 	payload := data[offset : offset+length]
 	origPNBytes := make([]byte, 4)
@@ -150,12 +137,70 @@ func (longPackage *LongPackage) ParsePackageNum(data []byte, offset uint16, leng
 	return pageNumLength, math.U32BE0To4(u, uint8(pageNumLength)), nil
 }
 
+func ParseInitial(longPackage *LongPackage, data []byte) (err error) {
+	err = ParseInitialHeader(longPackage, data)
+	frame, err := ParseFrame(longPackage.PlayLoad)
+	if err != nil {
+		return err
+	}
+	_, err = ParseHandshake(frame)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+func ParseRetryHeader(longPackage *LongPackage, data []byte) (err error) {
+	stream := io.NewReadBytesStream(data)
+	longPackage.firstByte, err = stream.ReadByte()
+	if err != nil {
+		return err
+	}
+	longPackage.Version, err = stream.Read4Uint32()
+	if err != nil {
+		return err
+	}
+	readValue := util.NewReadValue(stream)
+	longPackage.DestinationConnectionId, longPackage.DestinationConnectionIdLength, err = readValue.ReadUint8()
+	if err != nil {
+		return err
+	}
+	longPackage.SourceConnectionId, longPackage.SourceConnectionIdLength, err = readValue.ReadUint8()
+	if err != nil {
+		return err
+	}
+	longPackage.PlayLoad, err = io.ReadAll(stream)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func ParseRetryToken(longPackage *LongPackage, retryToken []byte) error {
+	ln := len(retryToken)
+	longPackage.RetryToken = retryToken[0 : ln-16]
+	longPackage.RetryIntegrityTag = retryToken[ln-16 : ln]
+	return nil
+}
+func ParseRetry(longPackage *LongPackage, data []byte) (err error) {
+	err = ParseRetryHeader(longPackage, data)
+	if err != nil {
+		return err
+	}
+	return ParseRetryToken(longPackage, data)
+}
+
 func ParseLongPackage(data []byte) (*LongPackage, error) {
+	longPackage := &LongPackage{}
 	packetType := PacketType(data[0] & 30 >> 4)
 	if packetType == PacketTypeInitial {
-		initial, err := ParseInitial(data)
+		err := ParseInitial(longPackage, data)
 		if err != nil {
-			return initial, err
+			return longPackage, err
+		}
+	} else if packetType == PacketTypeRetry {
+		err := ParseRetry(longPackage, data)
+		if err != nil {
+			return longPackage, err
 		}
 	}
 	return nil, util.ProtocolError

@@ -29,6 +29,7 @@ func TestInfo2(t *testing.T) {
 func TestInfo3(t *testing.T) {
 	config := GetDefaultConfig()
 	config.SetLevel(DebugLevel)
+	config.SetCall(true)
 	config.AddFileConfig("log/log.log", DebugLevel)
 
 	Panic("=====================")

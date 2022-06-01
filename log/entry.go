@@ -73,8 +73,10 @@ func (entry *Entry) Log(format string, args ...interface{}) {
 	} else {
 		fmt.Fprint(entry.Buffer, args...)
 	}
-	entry.Buffer.WriteString("	")
-	entry.Buffer.WriteString(entry.codePath)
+	if len(entry.codePath)>0{
+		entry.Buffer.WriteString("	")
+		entry.Buffer.WriteString(entry.codePath)
+	}
 	entry.Buffer.WriteString("\"\n")
 }
 
