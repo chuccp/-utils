@@ -15,6 +15,9 @@ type Handshake struct {
 	CompressMethods       []byte
 	ExtensionsLength      uint16
 	Extensions            map[ExtensionType]*Extension
+
+	CipherSuite uint16
+	Compression uint8
 }
 
 func (h *Handshake) readSession(readStream *io.ReadStream) (err error) {
@@ -32,6 +35,14 @@ func (h *Handshake) readSession(readStream *io.ReadStream) (err error) {
 			return nil
 		}
 	}
+}
+func (h *Handshake) readServerCipherSuite(readStream *io.ReadStream) (err error) {
+	h.CipherSuite, err = readStream.Read2Uint16()
+	return err
+}
+func (h *Handshake) readServerCompression(readStream *io.ReadStream) (err error) {
+	h.Compression, err = readStream.ReadUint8()
+	return err
 }
 func (h *Handshake) readCipherSuites(readStream *io.ReadStream) (err error) {
 
@@ -63,16 +74,20 @@ func (h *Handshake) readCompression(readStream *io.ReadStream) (err error) {
 func (h *Handshake) readExtensions(readStream *io.ReadStream) (err error) {
 
 	h.ExtensionsLength, err = readStream.Read2Uint16()
-
+	if err != nil {
+		return err
+	}
 	bytes, err := readStream.ReadBytes(int(h.ExtensionsLength))
 	if err != nil {
 		return err
 	}
-	h.Extensions,err = ParseExtension(bytes)
-
+	h.Extensions, err = ParseExtension(bytes)
+	if err != nil {
+		return err
+	}
 	return err
 }
-func ParseHandshake(data []byte) (*Handshake, error) {
+func ParseClientHandshake(data []byte) (*Handshake, error) {
 	readStream := io.NewReadBytesStream(data)
 	b, err := readStream.ReadUint8()
 	if err != nil {
@@ -111,4 +126,47 @@ func ParseHandshake(data []byte) (*Handshake, error) {
 		}
 		return &handshake, err
 	}
+}
+func ParseServerHandshake(data []byte) (*Handshake, error) {
+	readStream := io.NewReadBytesStream(data)
+	b, err := readStream.ReadUint8()
+	if err != nil {
+		return nil, err
+	} else {
+		var handshake Handshake
+		handshake.HandshakeType = HandshakeType(b)
+		handshake.Length, err = readStream.Read3Uint32()
+		if err != nil {
+			return nil, err
+		}
+		handshake.Version, err = readStream.Read2Uint16()
+		if err != nil {
+			return nil, err
+		}
+		handshake.Random, err = readStream.ReadBytes(32)
+		if err != nil {
+			return nil, err
+		}
+		err = handshake.readSession(readStream)
+		if err != nil {
+			return nil, err
+		}
+		err = handshake.readServerCipherSuite(readStream)
+		if err != nil {
+			return nil, err
+		}
+
+		err = handshake.readServerCompression(readStream)
+		if err != nil {
+			return nil, err
+		}
+
+		err = handshake.readExtensions(readStream)
+		if err != nil {
+			return nil, err
+		}
+		return &handshake, err
+	}
+
+	return nil, nil
 }

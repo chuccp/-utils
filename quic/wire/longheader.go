@@ -4,6 +4,7 @@ import (
 	"github.com/chuccp/utils/io"
 	"github.com/chuccp/utils/math"
 	"github.com/chuccp/utils/quic/util"
+	str "github.com/chuccp/utils/string"
 )
 
 type PacketType uint8
@@ -40,6 +41,7 @@ type LongPackage struct {
 	DestinationConnectionId       []byte
 	SourceConnectionIdLength      byte
 	SourceConnectionId            []byte
+	IsClient                      bool
 	TokenLength                   byte
 	Token                         []byte
 	Length                        uint32
@@ -61,7 +63,6 @@ type TransportParameters struct {
 
 func ParseInitialHeader(longPackage *LongPackage, data []byte) (err error) {
 	stream := io.NewReadBytesStream(data)
-	longPackage = &LongPackage{}
 	longPackage.firstByte, err = stream.ReadByte()
 	if err != nil {
 		return err
@@ -79,6 +80,15 @@ func ParseInitialHeader(longPackage *LongPackage, data []byte) (err error) {
 	if err != nil {
 		return err
 	}
+
+	if longPackage.DestinationConnectionIdLength > 0 {
+		longPackage.IsClient = true
+	} else {
+		longPackage.IsClient = false
+	}
+
+
+
 	longPackage.Token, longPackage.TokenLength, err = readValue.ReadUint8()
 	if err != nil {
 		return err
@@ -93,10 +103,10 @@ func ParseInitialHeader(longPackage *LongPackage, data []byte) (err error) {
 	*/
 	offset := stream.Offset()
 
-	if longPackage.DestinationConnectionIdLength > 0 {
-		longPackage.aead = NewInitialAEAD(longPackage.DestinationConnectionId, true)
-	}else{
-		longPackage.aead = NewInitialAEAD(longPackage.SourceConnectionId, false)
+	if longPackage.IsClient {
+		longPackage.aead = NewInitialAEAD(longPackage.DestinationConnectionId, longPackage.IsClient)
+	} else {
+		longPackage.aead = NewInitialAEAD(str.DecodeHex("da105e8d"), longPackage.IsClient)
 	}
 
 	longPackage.PacketNumberLength, longPackage.PackageNum, err = longPackage.ParsePackageNum(data, offset, uint16(longPackage.Length))
@@ -106,9 +116,9 @@ func ParseInitialHeader(longPackage *LongPackage, data []byte) (err error) {
 	exLen := offset + uint16(longPackage.PacketNumberLength)
 	additionalData := data[:exLen]
 	ciphertext := data[exLen : offset+uint16(longPackage.Length)]
-	data, err = longPackage.aead.aead.Open([]byte{}, longPackage.aead.iv, ciphertext, additionalData)
+	dText, err := longPackage.aead.aead.Open([]byte{}, longPackage.aead.iv, ciphertext, additionalData)
 	if err == nil {
-		longPackage.PlayLoad = data
+		longPackage.PlayLoad = dText
 		return nil
 	}
 	return err
@@ -123,7 +133,7 @@ func (longPackage *LongPackage) ParsePackageNum(data []byte, offset uint16, leng
 	origPNBytes := make([]byte, 4)
 	copy(origPNBytes, payload[0:4])
 	sample := payload[4:20]
-	param2 := &longPackage.firstByte
+	param2 := &data[0]
 	param3 := payload[0:4]
 	mask := make([]byte, longPackage.aead.block.BlockSize())
 	longPackage.aead.block.Encrypt(mask, sample)
@@ -131,22 +141,36 @@ func (longPackage *LongPackage) ParsePackageNum(data []byte, offset uint16, leng
 	for i := range param3 {
 		param3[i] ^= mask[i+1]
 	}
-	pageNumLength := longPackage.firstByte&0x3 + 1
-	copy(payload[pageNumLength:4], origPNBytes[pageNumLength:4])
+	pageNumLength := (*param2)&0x3 + 1
 	u := param3[0:pageNumLength]
+	copy(payload[pageNumLength:4], origPNBytes[pageNumLength:4])
 	return pageNumLength, math.U32BE0To4(u, uint8(pageNumLength)), nil
 }
 
 func ParseInitial(longPackage *LongPackage, data []byte) (err error) {
 	err = ParseInitialHeader(longPackage, data)
+	if err != nil {
+		return err
+	}
 	frame, err := ParseFrame(longPackage.PlayLoad)
 	if err != nil {
 		return err
 	}
-	_, err = ParseHandshake(frame)
-	if err != nil {
-		return err
+
+	if longPackage.IsClient{
+		_, err = ParseClientHandshake(frame)
+		if err != nil {
+			return err
+		}
+	}else{
+		_, err = ParseServerHandshake(frame)
+		if err != nil {
+			return err
+		}
 	}
+
+
+
 
 	return err
 }
