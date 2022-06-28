@@ -15,7 +15,7 @@ const (
 	// PacketTypeRetry is the packet type of a Retry packet
 	PacketTypeRetry PacketType = 3
 	// PacketTypeHandshake is the packet type of a Handshake packet
-	PacketTypeHandshake
+	PacketTypeHandshake PacketType = 2
 	// PacketType0RTT is the packet type of a 0-RTT packet
 	PacketType0RTT
 )
@@ -87,8 +87,6 @@ func ParseInitialHeader(longPackage *LongPackage, data []byte) (err error) {
 		longPackage.IsClient = false
 	}
 
-
-
 	longPackage.Token, longPackage.TokenLength, err = readValue.ReadUint8()
 	if err != nil {
 		return err
@@ -116,7 +114,7 @@ func ParseInitialHeader(longPackage *LongPackage, data []byte) (err error) {
 	exLen := offset + uint16(longPackage.PacketNumberLength)
 	additionalData := data[:exLen]
 	ciphertext := data[exLen : offset+uint16(longPackage.Length)]
-	dText, err := longPackage.aead.aead.Open([]byte{}, longPackage.aead.iv, ciphertext, additionalData)
+	dText, err := longPackage.aead.Open([]byte{}, longPackage.aead.iv, ciphertext, additionalData)
 	if err == nil {
 		longPackage.PlayLoad = dText
 		return nil
@@ -157,21 +155,17 @@ func ParseInitial(longPackage *LongPackage, data []byte) (err error) {
 		return err
 	}
 
-	if longPackage.IsClient{
+	if longPackage.IsClient {
 		_, err = ParseClientHandshake(frame)
 		if err != nil {
 			return err
 		}
-	}else{
+	} else {
 		_, err = ParseServerHandshake(frame)
 		if err != nil {
 			return err
 		}
 	}
-
-
-
-
 	return err
 }
 func ParseRetryHeader(longPackage *LongPackage, data []byte) (err error) {
@@ -213,9 +207,42 @@ func ParseRetry(longPackage *LongPackage, data []byte) (err error) {
 	return ParseRetryToken(longPackage, data)
 }
 
+func ParseHandshakeHeader(longPackage *LongPackage, data []byte) (err error) {
+	stream := io.NewReadBytesStream(data)
+	longPackage.firstByte, err = stream.ReadByte()
+	if err != nil {
+		return err
+	}
+	longPackage.Version, err = stream.Read4Uint32()
+	if err != nil {
+		return err
+	}
+	readValue := util.NewReadValue(stream)
+	longPackage.DestinationConnectionId, longPackage.DestinationConnectionIdLength, err = readValue.ReadUint8()
+	if err != nil {
+		return err
+	}
+	longPackage.SourceConnectionId, longPackage.SourceConnectionIdLength, err = readValue.ReadUint8()
+	if err != nil {
+		return err
+	}
+	longPackage.Length, err = readValue.ReadVariableValueLength()
+	return err
+}
+
+func ParseHandshake(longPackage *LongPackage, data []byte) (err error) {
+
+	err = ParseHandshakeHeader(longPackage, data)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
 func ParseLongPackage(data []byte) (*LongPackage, error) {
 	longPackage := &LongPackage{}
-	packetType := PacketType(data[0] & 30 >> 4)
+	packetType := PacketType((data[0] & 0x30) >> 4)
 	if packetType == PacketTypeInitial {
 		err := ParseInitial(longPackage, data)
 		if err != nil {
@@ -223,6 +250,11 @@ func ParseLongPackage(data []byte) (*LongPackage, error) {
 		}
 	} else if packetType == PacketTypeRetry {
 		err := ParseRetry(longPackage, data)
+		if err != nil {
+			return longPackage, err
+		}
+	} else if packetType == PacketTypeHandshake {
+		err := ParseHandshake(longPackage, data)
 		if err != nil {
 			return longPackage, err
 		}

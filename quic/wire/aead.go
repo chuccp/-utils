@@ -73,10 +73,38 @@ type AEAD struct {
 	iv    []byte
 }
 
+
+
+func (a *AEAD)NonceSize() int{
+	return 0
+}
+func (a *AEAD)Overhead() int{
+	return 0
+}
+
+
+func (a *AEAD)Seal(dst, nonce, plaintext, additionalData []byte) []byte{
+	return nil
+}
+
+
+func (a *AEAD)Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, error){
+	return a.aead.Open(dst,nonce,ciphertext,additionalData)
+}
+
+func (a *AEAD)Encrypt(dst, src []byte){
+
+	a.block.Encrypt(dst,src)
+}
+
+
+func (a *AEAD)Decrypt(dst, src []byte){
+	a.block.Decrypt(dst,src)
+}
+
 func NewInitialAEAD(connID []byte, isClient bool) *AEAD {
 	clientSecret, serverSecret := computeSecrets(connID)
 	var mySecret, _ []byte
-
 	if isClient {
 		mySecret = clientSecret
 		_ = serverSecret
@@ -85,8 +113,7 @@ func NewInitialAEAD(connID []byte, isClient bool) *AEAD {
 		mySecret = serverSecret
 	}
 	block := newAESHeaderProtector(mySecret)
-	otherKey, otherIV := computeInitialKeyAndIV(mySecret)
-	aead := aeadAESGCM(otherKey)
-	return &AEAD{block: block, aead: aead, key: otherKey, iv: otherIV}
-
+	myKey, myIV := computeInitialKeyAndIV(mySecret)
+	aead := aeadAESGCM(myKey)
+	return &AEAD{block: block, aead: aead, key: myKey, iv: myIV}
 }
