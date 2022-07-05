@@ -12,7 +12,7 @@ func TestInitial(t *testing.T) {
 
 
 	head:=NewLongHeader(packetTypeInitial,[]byte{0,0,0,0,0,0,0,0},sc)
-	var packetBuffer = NewPacketBuffer()
+	var packetBuffer = NewPacketWriteBuffer()
 	Packet(head,packetBuffer)
 	t.Log(packetBuffer.Bytes())
 
