@@ -1,22 +1,33 @@
 package udp
 
-import "io"
+import (
+	"bytes"
+	"encoding/binary"
+)
 
-type ByteCount int64
-const MaxPacketBufferSize ByteCount = 1452
-
-type buffer struct {
-	data []byte
-	len uint64
+type PacketBuffer struct {
+	buffer *bytes.Buffer
 }
 
-func NewBuffer() *buffer {
-	data:=make([]byte,MaxPacketBufferSize)
-	return &buffer{data: data}
+func NewPacketBuffer() *PacketBuffer {
+	return &PacketBuffer{buffer: new(bytes.Buffer)}
 }
-func (b *buffer) readPack(reader io.Reader) (err error) {
-	len,err :=reader.Read(b.data)
-	b.len = uint64(len)
-	return err
+func (pb *PacketBuffer) WriteByte(b byte) {
+	pb.buffer.WriteByte(b)
 }
-
+func (pb *PacketBuffer) WriteBytes(bs []byte) {
+	pb.buffer.Write(bs)
+}
+func (pb *PacketBuffer) WriteUint32(len uint8,num uint32) {
+	v:=[]byte{0,0,0,0}
+	binary.LittleEndian.PutUint32(v,num)
+	pb.buffer.Write(v[4-len:4])
+}
+func (pb *PacketBuffer) WriteUint64(len uint8,num uint64) {
+	v:=[]byte{0,0,0,0,0,0,0,0}
+	binary.LittleEndian.PutUint64(v,num)
+	pb.buffer.Write(v[8-len:8])
+}
+func (pb *PacketBuffer) WriteVariableLength(len uint32) {
+	pb.buffer.Write(VariableLengthToBytes(len))
+}
