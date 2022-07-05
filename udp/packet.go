@@ -11,8 +11,8 @@ const (
 	packetTypeOneRTT
 )
 
-func Packet(longHeader *LongHeader)  {
-	var packetBuffer = NewPacketBuffer()
+func Packet(longHeader *LongHeader,packetBuffer *PacketBuffer)  {
+
 	b := longHeader.GetFirstByte()
 	packetBuffer.WriteByte(b)
 	packetBuffer.WriteBytes(longHeader.Version.ToBytes())

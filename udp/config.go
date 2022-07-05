@@ -1,8 +1,5 @@
 package udp
 
-
-
-
 type SendConfig struct {
 	PacketNumber PacketNumber
 	Version VersionNumber
@@ -10,7 +7,7 @@ type SendConfig struct {
 	Token []byte
 }
 
-func (send *SendConfig) NewSendConfig()*SendConfig  {
+func NewSendConfig(ConnectionId []byte)*SendConfig  {
 
-	return &SendConfig{PacketNumber:0,}
+	return &SendConfig{PacketNumber:0,Version:Version1,ConnectionId:ConnectionId,Token:[]byte{}}
 }

@@ -36,10 +36,10 @@ func (h *LongHeader) GetFirstByte() byte {
 	b = b | (uint8(h.LongPacketType) << 4)
 	b = b | (h.ReservedBits << 2)
 	b = b | (h.PacketNumberLength)
-	return 0
+	return b
 }
 
-func NewLongHeader(longPacketType packetType, sendConfig *SendConfig, PlayLoad []byte) *LongHeader {
+func NewLongHeader(longPacketType packetType, PlayLoad []byte, sendConfig *SendConfig) *LongHeader {
 	var longHeader LongHeader
 	longHeader.LongPacketType = longPacketType
 	longHeader.IsLongHeader = true
