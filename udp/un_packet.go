@@ -4,7 +4,7 @@ import "github.com/chuccp/utils/math"
 
 func UnPacket(data []byte) {
 	fistByte := data[0]
-	if (fistByte & 0x80) == 1 {
+	if (fistByte & 0x80) !=0 {
 		var longHeader LongHeader
 		UnPacketLongHeader(data, &longHeader)
 	}
@@ -46,10 +46,10 @@ func UnPacketLongHeader(data []byte, longHeader *LongHeader) error {
 		if err != nil {
 			return err
 		}
-		pn := int(longHeader.PacketNumberLength)
+		pn := int(longHeader.PacketNumberLength+1)
 		data := longHeader.PacketPayload[0:pn]
 		longHeader.PacketNumber = PacketNumber(math.U32BE0To4(data, uint8(pn)))
-		longHeader.PacketPayload = longHeader.PacketPayload[int(longHeader.PacketNumberLength):]
+		longHeader.PacketPayload = longHeader.PacketPayload[pn:]
 		return err
 	}
 	if longHeader.LongPacketType == packetTypeHandshake || longHeader.LongPacketType == packetTypeZeroRTT {
