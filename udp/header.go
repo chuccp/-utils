@@ -8,9 +8,12 @@ type LongHeader struct {
 	ReservedBits       uint8
 	PacketNumberLength uint8
 
-	Version            VersionNumber
-	ConnectionIdLength uint8
-	ConnectionId       []byte
+	Version                       VersionNumber
+	DestinationConnectionIdLength uint8
+	DestinationConnectionId       []byte
+
+	SourceConnectionIdLength uint8
+	SourceConnectionId       []byte
 
 	TokenVariableLength uint32
 	Token               []byte
@@ -38,14 +41,23 @@ func (h *LongHeader) GetFirstByte() byte {
 	b = b | (h.PacketNumberLength)
 	return b
 }
+func (h *LongHeader) SetFirstByte(b byte) {
+	h.IsLongHeader = b&0x80 > 0
+	h.FixedBit = b&0x40 > 0
+	h.LongPacketType = packetType(b&0x30>>4)
+	h.ReservedBits = 0x0c>>2
+	h.PacketNumberLength = b&0x03
+}
 
 func NewLongHeader(longPacketType packetType, PlayLoad []byte, sendConfig *SendConfig) *LongHeader {
 	var longHeader LongHeader
 	longHeader.LongPacketType = longPacketType
 	longHeader.IsLongHeader = true
 	longHeader.Version = sendConfig.Version
-	longHeader.ConnectionIdLength = uint8(len(sendConfig.ConnectionId))
-	longHeader.ConnectionId = sendConfig.ConnectionId
+	longHeader.DestinationConnectionIdLength = uint8(len(sendConfig.ConnectionId))
+	longHeader.DestinationConnectionId = sendConfig.ConnectionId
+	longHeader.SourceConnectionIdLength = 0
+	longHeader.SourceConnectionId = []byte{}
 	longHeader.TokenVariableLength = uint32(len(sendConfig.Token))
 	longHeader.Token = sendConfig.Token
 	longHeader.LengthVariable = uint32(sendConfig.PacketNumber.GetPacketNumberLength()) + uint32(len(PlayLoad))

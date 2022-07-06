@@ -15,8 +15,10 @@ func Packet(longHeader *LongHeader,packetBuffer *PacketWriteBuffer)  {
 	b := longHeader.GetFirstByte()
 	packetBuffer.WriteByte(b)
 	packetBuffer.WriteBytes(longHeader.Version.ToBytes())
-	packetBuffer.WriteByte(longHeader.ConnectionIdLength)
-	packetBuffer.WriteBytes(longHeader.ConnectionId)
+	packetBuffer.WriteByte(longHeader.DestinationConnectionIdLength)
+	packetBuffer.WriteBytes(longHeader.DestinationConnectionId)
+	packetBuffer.WriteByte(longHeader.SourceConnectionIdLength)
+	packetBuffer.WriteBytes(longHeader.SourceConnectionId)
 	if longHeader.LongPacketType==packetTypeInitial{
 		packetBuffer.WriteVariableLength(longHeader.TokenVariableLength)
 		packetBuffer.WriteBytes(longHeader.Token)
