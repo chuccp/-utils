@@ -1,4 +1,4 @@
-package udp
+package util
 
 func VariableLengthToBytes(length uint32)[]byte  {
 	if length<=0x3f{

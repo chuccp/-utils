@@ -1,11 +1,11 @@
-package udp
+package util
 
 import "encoding/binary"
 
 type VersionNumber uint32
 
 const (
-	Version1        VersionNumber = 0xFF000001
+	Version1 VersionNumber = 0xFF000001
 )
 
 func (vn VersionNumber) ToBytes()[]byte  {

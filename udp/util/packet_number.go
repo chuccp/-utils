@@ -1,4 +1,4 @@
-package udp
+package util
 
 type PacketNumber uint64
 
