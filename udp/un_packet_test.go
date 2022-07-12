@@ -1,11 +1,18 @@
 package udp
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func TestUn_Packet(t *testing.T) {
 
-	data:=[]byte{128 ,255, 0, 0 ,1 ,16, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-
+	data, err := os.ReadFile("data.bb")
+	if err != nil {
+		return
+	}
 	UnPacket(data)
+
+
 
 }

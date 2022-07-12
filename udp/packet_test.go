@@ -1,6 +1,7 @@
 package udp
 
 import (
+	"github.com/chuccp/utils/file"
 	"github.com/chuccp/utils/udp/config"
 	"github.com/chuccp/utils/udp/tls"
 	"github.com/chuccp/utils/udp/util"
@@ -22,6 +23,17 @@ func TestInitial(t *testing.T) {
 	head.Bytes(wb)
 
 	log.Print(wb.Bytes())
+
+	newFile, err := file.NewFile("data.bb")
+	if err != nil {
+		t.Log(err)
+		return
+	}
+	err = newFile.WriteBytes(wb.Bytes())
+	if err != nil {
+		t.Log(err)
+		return
+	}
 
 
 }

@@ -1,80 +1,52 @@
 package udp
 
-func UnPacket(data []byte) {
-	fistByte := data[0]
-	if (fistByte & 0x80) !=0 {
-		var longHeader LongHeader
-		UnPacketLongHeader(data, &longHeader)
-	}
+import (
+	"github.com/chuccp/utils/udp/util"
+	"log"
+)
 
+func UnPacket(data []byte) error {
+	fistByte := data[0]
+	if (fistByte & 0x80) != 0 {
+		var longHeader LongHeader
+		return UnPacketLongHeader(data, &longHeader)
+	}
+	return nil
 }
 func UnPacketLongHeader(data []byte, longHeader *LongHeader) error {
-	//packetReadBuffer := util.NewReadBuffer(data)
-	//
-	//readByte, err := packetReadBuffer.ReadByte()
-	//if err != nil {
-	//	return err
-	//}
-	//longHeader.SetFirstByte(readByte)
-	//u32, err := packetReadBuffer.Read4U32()
-	//if err != nil {
-	//	return err
-	//}
-	//longHeader.Version = util.VersionNumber(u32)
-	//
-	//u8, bytes, err := packetReadBuffer.ReadU8Bytes()
-	//if err != nil {
-	//	return err
-	//}
-	//longHeader.DestinationConnectionIdLength = u8
-	//longHeader.DestinationConnectionId = bytes
-	//u8, bytes, err = packetReadBuffer.ReadU8Bytes()
-	//if err != nil {
-	//	return err
-	//}
-	//longHeader.SourceConnectionIdLength = u8
-	//longHeader.SourceConnectionId = bytes
-	//
-	//if longHeader.LongPacketType == packetTypeInitial {
-	//	longHeader.TokenVariableLength, longHeader.Token, err = packetReadBuffer.ReadVariableLengthBytes()
-	//	if err != nil {
-	//		return err
-	//	}
-	//	longHeader.LengthVariable, longHeader.PacketPayload, err = packetReadBuffer.ReadVariableLengthBytes()
-	//	if err != nil {
-	//		return err
-	//	}
-	//	pn := int(longHeader.PacketNumberLength+1)
-	//	data := longHeader.PacketPayload[0:pn]
-	//	longHeader.PacketNumber = util.PacketNumber(math.U32BE0To4(data, uint8(pn)))
-	//	longHeader.PacketPayload = longHeader.PacketPayload[pn:]
-	//	return err
-	//}
-	//if longHeader.LongPacketType == packetTypeHandshake || longHeader.LongPacketType == packetTypeZeroRTT {
-	//
-	//	longHeader.LengthVariable, longHeader.PacketPayload, err = packetReadBuffer.ReadVariableLengthBytes()
-	//	if err != nil {
-	//		return err
-	//	}
-	//	pn := int(longHeader.PacketNumberLength)
-	//	data := longHeader.PacketPayload[0:pn]
-	//	longHeader.PacketNumber = util.PacketNumber(math.U32BE0To4(data, uint8(pn)))
-	//	longHeader.PacketPayload = longHeader.PacketPayload[int(longHeader.PacketNumberLength):]
-	//	return err
-	//}
-	//if longHeader.LongPacketType == packetTypeRetry {
-	//	num := packetReadBuffer.Offset()
-	//	nLen := len(data)
-	//	mLen := uint16(nLen) - 16 - num
-	//	longHeader.RetryToken, err = packetReadBuffer.ReadU32Bytes(uint32(mLen))
-	//	if err != nil {
-	//		return err
-	//	}
-	//	longHeader.RetryIntegrityTag, err = packetReadBuffer.ReadBytes(16)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
+	rb := util.NewReadBuffer(data)
+	err := rb.ReadByteBuff(func(b byte, buffer *util.ReadBuffer) error {
+		longHeader.SetFirstByte(b)
+		buffer.ReadUInt32Buff(func(u uint32, buffer *util.ReadBuffer) error {
+			longHeader.Version = util.VersionNumber(u)
+			buffer.ReadUint8LengthBytesBuff(func(bytes []byte, buffer *util.ReadBuffer) error {
+				longHeader.DestinationConnectionId = bytes
+				buffer.ReadUint8LengthBytesBuff(func(bytes []byte, buffer *util.ReadBuffer) error {
+					longHeader.SourceConnectionId = bytes
+					buffer.ReadVariableLengthBytesBuff(func(bytes []byte, buffer *util.ReadBuffer) error {
+						longHeader.Token = bytes
+						_, data, err := buffer.ReadVariableLengthBytes()
+						if err != nil {
+							return err
+						} else {
+							log.Print("===========",data)
+
+							
+
+						}
+						return nil
+					})
+					return nil
+				})
+				return nil
+			})
+			return nil
+		})
+		return nil
+	})
+	if err != nil {
+		return err
+	}
 
 	return nil
 

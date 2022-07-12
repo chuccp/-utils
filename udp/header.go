@@ -63,13 +63,13 @@ func (h *LongHeader) Bytes(packetBuffer *util.WriteBuffer)  {
 	if h.LongPacketType==packetTypeInitial{
 		packetBuffer.WriteVariableLengthBytes(h.Token)
 		packetBuffer.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
-			wr.WriteUint64(h.GetPacketNumberLength(), uint64(h.PacketNumber))
+			wr.WriteLenUint64(h.GetPacketNumberLength(), uint64(h.PacketNumber))
 			h.PacketPayload.Bytes(wr)
 		})
 	}
 	if h.LongPacketType==packetTypeHandshake || h.LongPacketType==packetTypeZeroRTT{
 		packetBuffer.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
-			wr.WriteUint64(h.GetPacketNumberLength(), uint64(h.PacketNumber))
+			wr.WriteLenUint64(h.GetPacketNumberLength(), uint64(h.PacketNumber))
 			h.PacketPayload.Bytes(wr)
 		})
 	}
