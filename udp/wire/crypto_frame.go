@@ -6,17 +6,30 @@ import (
 
 type CryptoFrame struct {
 	Offset uint64
-	Buffer util.Buffer
+	data   []byte
 }
 
-func NewCryptoFrame(Buffer util.Buffer,Offset uint64) *CryptoFrame {
-	return &CryptoFrame{Buffer:Buffer,Offset:Offset}
+func NewCryptoFrame(data []byte) *CryptoFrame {
+	return &CryptoFrame{data: data, Offset: 0}
 }
 
-func (cryptoFrame *CryptoFrame) Bytes(write *util.WriteBuffer)  {
-	write.WriteByte(CryptoFrameType)
+func (cryptoFrame *CryptoFrame) Write(write *util.WriteBuffer) {
+	write.WriteByte(CryptoType)
 	write.WriteVariableLength(uint32(cryptoFrame.Offset))
 	write.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
-		cryptoFrame.Buffer.Bytes(wr)
+		wr.WriteBytes(cryptoFrame.data)
 	})
+}
+func (cryptoFrame *CryptoFrame) Read(read *util.ReadBuffer) error {
+	length, err := read.ReadVariableLength()
+	if err != nil {
+		return err
+	}
+	cryptoFrame.Offset = uint64(length)
+	_, data, err := read.ReadVariableLengthBytes()
+	if err != nil {
+		return err
+	}
+	cryptoFrame.data = data
+	return nil
 }

@@ -27,9 +27,9 @@ func (tps *TransportParameters)SetValue(Type byte,value uint32){
 	TransportParameter:=NewTransportParameter(Type,value )
 	tps.TransportParameterMap[TransportParameter.Type]  = TransportParameter
 }
-func (tps *TransportParameters) Bytes(write *util.WriteBuffer)  {
+func (tps *TransportParameters) Write(write *util.WriteBuffer)  {
 	for _, parameter := range tps.TransportParameterMap {
-		parameter.Bytes(write)
+		parameter.Write(write)
 	}
 }
 
@@ -44,7 +44,7 @@ func NewTransportParameter(Type byte,value uint32) *TransportParameter {
 	data:=util.VariableLengthToBytes(value)
 	return &TransportParameter{Type:Type,Length: uint8(len(data)),Value: data}
 }
-func (tp *TransportParameter) Bytes(write *util.WriteBuffer)  {
+func (tp *TransportParameter) Write(write *util.WriteBuffer)  {
 	write.WriteByte(tp.Type)
 	write.WriteByte(tp.Length)
 	if tp.Length>0{

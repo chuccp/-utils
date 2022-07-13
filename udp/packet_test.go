@@ -12,18 +12,21 @@ import (
 
 func TestInitial(t *testing.T) {
 
-	key := []byte{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+	key := []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 	//rand.Read(key)
 	sc := config.NewSendConfig(key)
 
-	wb:= util.NewWriteBuffer()
+	wb := util.NewWriteBuffer()
 
-	cryptoFrame :=wire.NewCryptoFrame(tls.NewClientHello(sc),0)
-	head:=NewLongHeader(packetTypeInitial,cryptoFrame,sc)
-	head.Bytes(wb)
-
+	clientHello := tls.NewClientHello(sc)
+	clientHelloWb := util.NewWriteBuffer()
+	clientHello.Write(clientHelloWb)
+	cryptoFrame := wire.NewCryptoFrame(clientHelloWb.Bytes())
+	cryptoFrameWb := util.NewWriteBuffer()
+	cryptoFrame.Write(cryptoFrameWb)
+	head := NewLongHeader(packetTypeInitial, cryptoFrameWb.Bytes(), sc)
+	head.Write(wb)
 	log.Print(wb.Bytes())
-
 	newFile, err := file.NewFile("data.bb")
 	if err != nil {
 		t.Log(err)
@@ -35,9 +38,8 @@ func TestInitial(t *testing.T) {
 		return
 	}
 
-
 }
-func TestInitialVersionNumber(t *testing.T)  {
+func TestInitialVersionNumber(t *testing.T) {
 
 	t.Log(util.Version1.ToBytes())
 }

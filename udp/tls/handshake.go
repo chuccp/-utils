@@ -31,18 +31,18 @@ func NewClientHello(sendConfig *config.SendConfig) *ClientHello {
 }
 
 
-func (ch *ClientHello) Bytes(write *util.WriteBuffer) {
+func (ch *ClientHello) Write(write *util.WriteBuffer) {
 	write.WriteByte(ch.HandshakeType)
 	write.WriteUint24LengthBuff(func(w *util.WriteBuffer) {
 		w.WriteBytes(ch.Version)
 		w.WriteBytes(ch.Random[0:32])
 		w.WriteUint8LengthBytes(ch.SessionId)
 		w.WriteUint16LengthBuff(func(wr *util.WriteBuffer) {
-			ch.CipherSuites.Bytes(wr)
+			ch.CipherSuites.Write(wr)
 		})
 		w.WriteUint8LengthBytes(ch.CompressionMethods)
 		w.WriteUint16LengthBuff(func(wr *util.WriteBuffer) {
-			ch.Extensions.Bytes(wr)
+			ch.Extensions.Write(wr)
 		})
 	})
 }

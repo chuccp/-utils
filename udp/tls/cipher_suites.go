@@ -17,7 +17,7 @@ func NewCipherSuites()*CipherSuites  {
 	var data = []uint16{TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384}
 	return &CipherSuites{cipherSuites:data}
 }
-func (s *CipherSuites) Bytes(write *util.WriteBuffer)  {
+func (s *CipherSuites) Write(write *util.WriteBuffer)  {
 	for _, suite := range s.cipherSuites {
 		write.WriteUint16(suite)
 	}

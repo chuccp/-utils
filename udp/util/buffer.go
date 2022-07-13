@@ -6,8 +6,11 @@ import (
 	"github.com/chuccp/utils/io"
 )
 
-type Buffer interface {
-	Bytes(write *WriteBuffer)
+type BufferWrite interface {
+	Write(write *WriteBuffer)
+}
+type BufferRead interface {
+	Read(read *ReadBuffer)error
 }
 
 type WriteBuffer struct {
@@ -104,60 +107,115 @@ func NewReadBuffer(data []byte) *ReadBuffer {
 func (prb *ReadBuffer) ReadByte() (byte, error) {
 	return prb.readStream.ReadByte()
 }
-func (prb *ReadBuffer) ReadByteBuff(f func(byte,*ReadBuffer)error) error {
+func (prb *ReadBuffer) ReadByteBuff(f func(byte, *ReadBuffer) error) error {
 	readByte, err := prb.ReadByte()
 	if err != nil {
 		return err
 	}
-	return f(readByte,prb)
+	return f(readByte, prb)
 }
-func (prb *ReadBuffer) ReadBytesBuff(num uint8,f func([]byte,*ReadBuffer)error) error {
+func (prb *ReadBuffer) ReadBytesBuff(num uint8, f func([]byte, *ReadBuffer) error) error {
 	readBytes, err := prb.ReadBytes(int(num))
 	if err != nil {
 		return err
 	}
-	return f(readBytes,prb)
+	return f(readBytes, prb)
 }
-func (prb *ReadBuffer) ReadUInt32Buff(f func(uint32,*ReadBuffer)error) error {
+func (prb *ReadBuffer) ReadUInt32Buff(f func(uint32, *ReadBuffer) error) error {
 	u32, err := prb.Read4U32()
 	if err != nil {
 		return err
 	}
-	return f(u32,prb)
+	return f(u32, prb)
 }
-func (prb *ReadBuffer) ReadUint8LengthBytesBuff(f func([]byte,*ReadBuffer)error) error {
+func (prb *ReadBuffer) ReadUint8LengthBytesBuff(f func([]byte, *ReadBuffer) error) error {
 	u8, err := prb.ReadByte()
 	if err != nil {
 		return err
 	}
-	if u8==0{
-		return f([]byte{},prb)
+	if u8 == 0 {
+		return f([]byte{}, prb)
 	}
 	readBytes, err := prb.ReadBytes(int(u8))
 	if err != nil {
 		return err
 	}
-	return f(readBytes,prb)
+	return f(readBytes, prb)
 }
-func (prb *ReadBuffer) ReadVariableLengthBytesBuff(f func([]byte,*ReadBuffer)error)error{
-	num,err:=prb.ReadVariableLength()
+func (prb *ReadBuffer) ReadUint8LengthU32Buff(f func(uint32, *ReadBuffer) error) error {
+	u8, err := prb.ReadByte()
+	if err != nil {
+		return err
+	}
+	if u8 == 0 {
+		return f(0, prb)
+	}
+	readBytes, err := prb.ReadU8LengthU32(u8)
+	if err != nil {
+		return err
+	}
+	return f(readBytes, prb)
+}
+
+func (prb *ReadBuffer) ReadVariableLengthBuff(f func(uint32, *ReadBuffer) error) error {
+	u32, err := prb.ReadVariableLength()
 	if err!=nil{
 		return err
 	}
-	if num==0{
+	return f(u32, prb)
+}
 
-		return f([]byte{},prb)
+
+func (prb *ReadBuffer) ReadVariableLengthBytesBuff(f func([]byte, *ReadBuffer) error) error {
+	num, err := prb.ReadVariableLength()
+	if err != nil {
+		return err
+	}
+	if num == 0 {
+
+		return f([]byte{}, prb)
 	}
 	readBytes, err := prb.ReadBytes(int(num))
 	if err != nil {
 		return err
 	}
-	return f(readBytes,prb)
+	return f(readBytes, prb)
 }
 
 func (prb *ReadBuffer) ReadU32Bytes(u32 uint32) ([]byte, error) {
 	return prb.readStream.ReadUintBytes(u32)
 }
+
+func (prb *ReadBuffer) ReadU8LengthU32(u8 uint8) (uint32, error) {
+	if u8==0 {
+		return 0,nil
+	}
+
+	data, err := prb.readStream.ReadBytes(int(u8))
+	if err != nil {
+		return 0, err
+	}
+	switch u8 {
+	case 1:
+		return  uint32(data[0]),nil
+	case 2:
+		{
+			return	uint32(data[0])<<8|uint32(data[1]),nil
+		}
+	case 3:
+		{
+			return	uint32(data[0])<<16|uint32(data[1])<<8|uint32(data[2]),nil
+		}
+	case 4:
+		{
+			return	uint32(data[0])<<24|uint32(data[1])<<16|uint32(data[2])<<8|uint32(data[3]),nil
+		}
+	}
+
+
+	return 0, nil
+}
+
 func (prb *ReadBuffer) ReadBytes(len int) ([]byte, error) {
 	return prb.readStream.ReadBytes(len)
 }
@@ -181,11 +239,17 @@ func (prb *ReadBuffer) ReadU8Bytes() (uint8, []byte, error) {
 func (prb *ReadBuffer) Offset() uint16 {
 	return prb.readStream.Offset()
 }
-func (prb *ReadBuffer) ReadVariableLength() (uint32,  error) {
+func (prb *ReadBuffer) Size() int {
+	return prb.readStream.Size()
+}
+func (prb *ReadBuffer) Buffered() int {
+	return prb.readStream.Buffered()
+}
+func (prb *ReadBuffer) ReadVariableLength() (uint32, error) {
 
 	b, err := prb.readStream.ReadByte()
 	if err != nil {
-		return 0,  err
+		return 0, err
 	}
 	num := uint32(0)
 	v := b >> 6
@@ -196,7 +260,7 @@ func (prb *ReadBuffer) ReadVariableLength() (uint32,  error) {
 		{
 			b2, err := prb.readStream.ReadByte()
 			if err != nil {
-				return 0,  err
+				return 0, err
 			}
 			b = b & 0x3F
 			num = (num | uint32(b)<<8) | uint32(b2)
@@ -205,7 +269,7 @@ func (prb *ReadBuffer) ReadVariableLength() (uint32,  error) {
 		{
 			readBytes, err := prb.readStream.ReadBytes(2)
 			if err != nil {
-				return 0,  err
+				return 0, err
 			}
 			b = b & 0x3F
 			num = (num | uint32(b)<<16) | (uint32(readBytes[0]) << 8) | uint32(readBytes[1])
@@ -220,7 +284,7 @@ func (prb *ReadBuffer) ReadVariableLength() (uint32,  error) {
 			num = (num | uint32(b)<<24) | (uint32(readBytes[0]) << 16) | uint32(readBytes[1])<<8 | uint32(readBytes[2])
 		}
 	}
-	return num,  nil
+	return num, nil
 }
 func (prb *ReadBuffer) ReadVariableLengthBytes() (uint32, []byte, error) {
 
@@ -268,3 +332,5 @@ func (prb *ReadBuffer) ReadVariableLengthBytes() (uint32, []byte, error) {
 	}
 	return num, readBytes, nil
 }
+
+

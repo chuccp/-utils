@@ -1,6 +1,7 @@
 package udp
 
 import (
+	"log"
 	"os"
 	"testing"
 )
@@ -11,6 +12,7 @@ func TestUn_Packet(t *testing.T) {
 	if err != nil {
 		return
 	}
+	log.Print(data)
 	UnPacket(data)
 
 

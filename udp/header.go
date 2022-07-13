@@ -3,6 +3,7 @@ package udp
 import (
 	"github.com/chuccp/utils/udp/config"
 	"github.com/chuccp/utils/udp/util"
+	"github.com/chuccp/utils/udp/wire"
 )
 
 type LongHeader struct {
@@ -15,70 +16,130 @@ type LongHeader struct {
 
 	Version util.VersionNumber
 	//DestinationConnectionIdLength uint8
-	DestinationConnectionId       []byte
+	DestinationConnectionId []byte
 
 	//SourceConnectionIdLength uint8
-	SourceConnectionId       []byte
+	SourceConnectionId []byte
 
 	//TokenVariableLength uint32
-	Token               []byte
+	Token []byte
 	//LengthVariable      uint32
 	PacketNumber  util.PacketNumber
-	PacketPayload util.Buffer
+	PacketPayload []byte
 
 	RetryToken        []byte
 	RetryIntegrityTag []byte
 }
 
-func (h *LongHeader) GetPacketNumberLength() uint8 {
-	return h.PacketNumberLength + 1
+func (longHeader *LongHeader) GetPacketNumberLength() uint8 {
+	return longHeader.PacketNumberLength
 }
-func (h *LongHeader) GetFirstByte() byte {
+func (longHeader *LongHeader) GetFirstByte() byte {
 	var b byte = 0
-	if h.IsLongHeader {
+	if longHeader.IsLongHeader {
 		b = b | 0x80
 	}
-	if h.FixedBit {
+	if longHeader.FixedBit {
 		b = b | 0x40
 	}
-	b = b | (uint8(h.LongPacketType) << 4)
-	b = b | (h.ReservedBits << 2)
-	b = b | (h.PacketNumberLength)
+	b = b | (uint8(longHeader.LongPacketType) << 4)
+	b = b | (longHeader.ReservedBits << 2)
+	b = b | (longHeader.PacketNumberLength - 1)
 	return b
 }
-func (h *LongHeader) SetFirstByte(b byte) {
-	h.IsLongHeader = b&0x80 > 0
-	h.FixedBit = b&0x40 > 0
-	h.LongPacketType = packetType(b&0x30>>4)
-	h.ReservedBits = 0x0c>>2
-	h.PacketNumberLength = b&0x03
+func (longHeader *LongHeader) SetFirstByte(b byte) {
+	longHeader.IsLongHeader = b&0x80 > 0
+	longHeader.FixedBit = b&0x40 > 0
+	longHeader.LongPacketType = packetType(b & 0x30 >> 4)
+	longHeader.ReservedBits = 0x0c >> 2
+	longHeader.PacketNumberLength = b&0x03 + 1
 }
 
-func (h *LongHeader) Bytes(packetBuffer *util.WriteBuffer)  {
-	b := h.GetFirstByte()
+func (longHeader *LongHeader) Write(packetBuffer *util.WriteBuffer) {
+	b := longHeader.GetFirstByte()
 	packetBuffer.WriteByte(b)
-	packetBuffer.WriteBytes(h.Version.ToBytes())
-	packetBuffer.WriteUint8LengthBytes(h.DestinationConnectionId)
-	packetBuffer.WriteUint8LengthBytes(h.SourceConnectionId)
-	if h.LongPacketType==packetTypeInitial{
-		packetBuffer.WriteVariableLengthBytes(h.Token)
+	packetBuffer.WriteBytes(longHeader.Version.ToBytes())
+	packetBuffer.WriteUint8LengthBytes(longHeader.DestinationConnectionId)
+	packetBuffer.WriteUint8LengthBytes(longHeader.SourceConnectionId)
+	if longHeader.LongPacketType == packetTypeInitial {
+		packetBuffer.WriteVariableLengthBytes(longHeader.Token)
 		packetBuffer.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
-			wr.WriteLenUint64(h.GetPacketNumberLength(), uint64(h.PacketNumber))
-			h.PacketPayload.Bytes(wr)
+			wr.WriteLenUint64(longHeader.GetPacketNumberLength(), uint64(longHeader.PacketNumber))
+			wr.WriteBytes(longHeader.PacketPayload)
 		})
 	}
-	if h.LongPacketType==packetTypeHandshake || h.LongPacketType==packetTypeZeroRTT{
+	if longHeader.LongPacketType == packetTypeHandshake || longHeader.LongPacketType == packetTypeZeroRTT {
 		packetBuffer.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
-			wr.WriteLenUint64(h.GetPacketNumberLength(), uint64(h.PacketNumber))
-			h.PacketPayload.Bytes(wr)
+			wr.WriteLenUint64(longHeader.GetPacketNumberLength(), uint64(longHeader.PacketNumber))
+			wr.WriteBytes(longHeader.PacketPayload)
 		})
 	}
-	if h.LongPacketType==packetTypeRetry{
-		packetBuffer.WriteBytes(h.RetryToken)
-		packetBuffer.WriteBytes(h.RetryIntegrityTag)
+	if longHeader.LongPacketType == packetTypeRetry {
+		packetBuffer.WriteBytes(longHeader.RetryToken)
+		packetBuffer.WriteBytes(longHeader.RetryIntegrityTag)
 	}
 }
-func NewLongHeader(longPacketType packetType, PlayLoad util.Buffer, sendConfig *config.SendConfig) *LongHeader {
+func (longHeader *LongHeader) Read(packetBuffer *util.ReadBuffer) error {
+	readByte, err := packetBuffer.ReadByte()
+	if err != nil {
+		return err
+	}
+	longHeader.SetFirstByte(readByte)
+	u32, err := packetBuffer.Read4U32()
+	if err != nil {
+		return err
+	}
+	longHeader.Version = util.VersionNumber(u32)
+	_,data,err:=packetBuffer.ReadU8Bytes()
+	if err != nil {
+		return err
+	}
+	longHeader.DestinationConnectionId = data
+	_,data,err=packetBuffer.ReadU8Bytes()
+	if err != nil {
+		return err
+	}
+	longHeader.SourceConnectionId = data
+	_,data,err = packetBuffer.ReadVariableLengthBytes()
+	if err != nil {
+		return err
+	}
+	longHeader.Token = data
+	_,data,err = packetBuffer.ReadVariableLengthBytes()
+	if err != nil {
+		return err
+	}
+	longHeader.PacketPayload = data
+	return longHeader.decodePayload()
+}
+func (longHeader *LongHeader)decodePayload()error{
+
+	rb :=util.NewReadBuffer(longHeader.PacketPayload)
+	u32, err := rb.ReadU8LengthU32(longHeader.PacketNumberLength)
+	if err != nil {
+		return err
+	}
+	longHeader.PacketNumber = util.PacketNumber(u32)
+	readByte, err := rb.ReadByte()
+	if err != nil {
+		return err
+	}
+	for{
+		if readByte==0x6 {
+			var cryptoFrame wire.CryptoFrame
+			cryptoFrame.Read(rb)
+		}
+		if rb.Buffered()==0 {
+			break
+		}
+	}
+
+	return nil
+}
+
+
+
+func NewLongHeader(longPacketType packetType, PacketPayload []byte, sendConfig *config.SendConfig) *LongHeader {
 	var longHeader LongHeader
 	longHeader.LongPacketType = longPacketType
 	longHeader.IsLongHeader = true
@@ -87,6 +148,7 @@ func NewLongHeader(longPacketType packetType, PlayLoad util.Buffer, sendConfig *
 	longHeader.SourceConnectionId = []byte{}
 	longHeader.Token = sendConfig.Token
 	longHeader.PacketNumber = sendConfig.PacketNumber
-	longHeader.PacketPayload = PlayLoad
+	longHeader.PacketNumberLength = sendConfig.PacketNumber.GetPacketNumberLength()
+	longHeader.PacketPayload = PacketPayload
 	return &longHeader
 }

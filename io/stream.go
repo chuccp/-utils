@@ -26,6 +26,13 @@ func NewReadBytesStream(data []byte) *ReadStream {
 func (stream *ReadStream) Offset() uint16 {
 	return stream.offset
 }
+func (stream *ReadStream) Size() int {
+	return stream.read_.Size()
+}
+
+func (stream *ReadStream) Buffered() int {
+	return stream.read_.Buffered()
+}
 
 func (stream *ReadStream) ReadLine() ([]byte, error) {
 	buffer := bytes.Buffer{}

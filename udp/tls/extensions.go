@@ -41,25 +41,25 @@ func NewExtensions() *Extensions {
 	return &Extensions{Extensions: make([]*Extension, 0)}
 }
 
-func (es *Extensions) Bytes(write *util.WriteBuffer) {
+func (es *Extensions) Write(write *util.WriteBuffer) {
 	for _, extension := range es.Extensions {
 		write.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
-			extension.Bytes(wr)
+			extension.Write(wr)
 		})
 	}
 }
 
 type Extension struct {
 	Type   uint16
-	Buffer util.Buffer
+	Buffer util.BufferWrite
 }
 
-func NewExtension(Type uint16, Buffer util.Buffer) *Extension {
+func NewExtension(Type uint16, Buffer util.BufferWrite) *Extension {
 	return &Extension{Type: Type, Buffer: Buffer}
 }
-func (e *Extension) Bytes(write *util.WriteBuffer) {
+func (e *Extension) Write(write *util.WriteBuffer) {
 	write.WriteUint16(e.Type)
 	write.WriteUint16LengthBuff(func(write *util.WriteBuffer) {
-		e.Buffer.Bytes(write)
+		e.Buffer.Write(write)
 	})
 }
