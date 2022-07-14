@@ -6,18 +6,18 @@ import (
 
 type CryptoFrame struct {
 	Offset uint64
-	data   []byte
+	Data   []byte
 }
 
 func NewCryptoFrame(data []byte) *CryptoFrame {
-	return &CryptoFrame{data: data, Offset: 0}
+	return &CryptoFrame{Data: data, Offset: 0}
 }
 
 func (cryptoFrame *CryptoFrame) Write(write *util.WriteBuffer) {
 	write.WriteByte(CryptoType)
 	write.WriteVariableLength(uint32(cryptoFrame.Offset))
 	write.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
-		wr.WriteBytes(cryptoFrame.data)
+		wr.WriteBytes(cryptoFrame.Data)
 	})
 }
 func (cryptoFrame *CryptoFrame) Read(read *util.ReadBuffer) error {
@@ -30,6 +30,10 @@ func (cryptoFrame *CryptoFrame) Read(read *util.ReadBuffer) error {
 	if err != nil {
 		return err
 	}
-	cryptoFrame.data = data
+	cryptoFrame.Data = data
 	return nil
+}
+func ReadCryptoFrame(read *util.ReadBuffer) (*CryptoFrame,error) {
+	var cryptoFrame CryptoFrame
+	return &cryptoFrame,cryptoFrame.Read(read)
 }

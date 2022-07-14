@@ -22,4 +22,22 @@ func (s *CipherSuites) Write(write *util.WriteBuffer)  {
 		write.WriteUint16(suite)
 	}
 }
+func (s *CipherSuites) Read(read *util.ReadBuffer) error{
 
+	for{
+		length, err := read.ReadUint16Length()
+		if err != nil {
+			return err
+		}
+		s.cipherSuites = append(s.cipherSuites, length)
+		if read.Buffered()==0{
+			break
+		}
+	}
+	return nil
+}
+func  ReadCipherSuites(read *util.ReadBuffer) (*CipherSuites,error){
+	var cs CipherSuites
+	cs.cipherSuites = make([]uint16,0)
+	return &cs,cs.Read(read)
+}

@@ -71,17 +71,17 @@ func (pb *WriteBuffer) WriteBytes(bs []byte) {
 }
 func (pb *WriteBuffer) WriteUint32(len uint8, num uint32) {
 	v := []byte{0, 0, 0, 0}
-	binary.LittleEndian.PutUint32(v, num)
+	binary.BigEndian.PutUint32(v, num)
 	pb.buffer.Write(v[4-len : 4])
 }
 func (pb *WriteBuffer) WriteUint16(num uint16) {
 	v := []byte{0, 0}
-	binary.LittleEndian.PutUint16(v, num)
+	binary.BigEndian.PutUint16(v, num)
 	pb.buffer.Write(v)
 }
 func (pb *WriteBuffer) WriteLenUint64(len uint8, num uint64) {
 	v := []byte{0, 0, 0, 0, 0, 0, 0, 0}
-	binary.LittleEndian.PutUint64(v, num)
+	binary.BigEndian.PutUint64(v, num)
 	pb.buffer.Write(v[8-len : 8])
 }
 func (pb *WriteBuffer) WriteVariableLength(len uint32) {
@@ -93,7 +93,7 @@ func (pb *WriteBuffer) Bytes() []byte {
 
 func (pb *WriteBuffer) WriteUint24(u uint32) {
 	v := []byte{0, 0, 0, 0}
-	binary.LittleEndian.PutUint32(v, u)
+	binary.BigEndian.PutUint32(v, u)
 	pb.buffer.Write(v[1:4])
 }
 
@@ -222,7 +222,7 @@ func (prb *ReadBuffer) ReadBytes(len int) ([]byte, error) {
 func (prb *ReadBuffer) Read4U32() (uint32, error) {
 	return prb.readStream.Read4Uint32()
 }
-func (prb *ReadBuffer) ReadU8Bytes() (uint8, []byte, error) {
+func (prb *ReadBuffer) ReadU8LengthBytes() (uint8, []byte, error) {
 	u8, err := prb.readStream.ReadUint8()
 	if err != nil {
 		return 0, nil, err
@@ -236,6 +236,20 @@ func (prb *ReadBuffer) ReadU8Bytes() (uint8, []byte, error) {
 	}
 	return u8, readBytes, nil
 }
+func (prb *ReadBuffer) ReadU16LengthBytes() (uint16, []byte, error) {
+	u16, err := prb.readStream.Read2Uint16()
+	if err != nil {
+		return 0, nil, err
+	}
+	if u16 == 0 {
+		return u16, []byte{}, nil
+	}
+	readBytes, err := prb.readStream.ReadBytes(int(u16))
+	if err != nil {
+		return u16, nil, err
+	}
+	return u16, readBytes, nil
+}
 func (prb *ReadBuffer) Offset() uint16 {
 	return prb.readStream.Offset()
 }
@@ -244,6 +258,13 @@ func (prb *ReadBuffer) Size() int {
 }
 func (prb *ReadBuffer) Buffered() int {
 	return prb.readStream.Buffered()
+}
+
+func (prb *ReadBuffer) ReadUint24Length()(uint32, error) {
+	return prb.readStream.Read3Uint32()
+}
+func (prb *ReadBuffer) ReadUint16Length()(uint16, error) {
+	return prb.readStream.Read2Uint16()
 }
 func (prb *ReadBuffer) ReadVariableLength() (uint32, error) {
 

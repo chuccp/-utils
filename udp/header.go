@@ -3,7 +3,6 @@ package udp
 import (
 	"github.com/chuccp/utils/udp/config"
 	"github.com/chuccp/utils/udp/util"
-	"github.com/chuccp/utils/udp/wire"
 )
 
 type LongHeader struct {
@@ -90,53 +89,28 @@ func (longHeader *LongHeader) Read(packetBuffer *util.ReadBuffer) error {
 		return err
 	}
 	longHeader.Version = util.VersionNumber(u32)
-	_,data,err:=packetBuffer.ReadU8Bytes()
+	_, data, err := packetBuffer.ReadU8LengthBytes()
 	if err != nil {
 		return err
 	}
 	longHeader.DestinationConnectionId = data
-	_,data,err=packetBuffer.ReadU8Bytes()
+	_, data, err = packetBuffer.ReadU8LengthBytes()
 	if err != nil {
 		return err
 	}
 	longHeader.SourceConnectionId = data
-	_,data,err = packetBuffer.ReadVariableLengthBytes()
+	_, data, err = packetBuffer.ReadVariableLengthBytes()
 	if err != nil {
 		return err
 	}
 	longHeader.Token = data
-	_,data,err = packetBuffer.ReadVariableLengthBytes()
+	_, data, err = packetBuffer.ReadVariableLengthBytes()
 	if err != nil {
 		return err
 	}
 	longHeader.PacketPayload = data
-	return longHeader.decodePayload()
-}
-func (longHeader *LongHeader)decodePayload()error{
-
-	rb :=util.NewReadBuffer(longHeader.PacketPayload)
-	u32, err := rb.ReadU8LengthU32(longHeader.PacketNumberLength)
-	if err != nil {
-		return err
-	}
-	longHeader.PacketNumber = util.PacketNumber(u32)
-	readByte, err := rb.ReadByte()
-	if err != nil {
-		return err
-	}
-	for{
-		if readByte==0x6 {
-			var cryptoFrame wire.CryptoFrame
-			cryptoFrame.Read(rb)
-		}
-		if rb.Buffered()==0 {
-			break
-		}
-	}
-
 	return nil
 }
-
 
 
 func NewLongHeader(longPacketType packetType, PacketPayload []byte, sendConfig *config.SendConfig) *LongHeader {

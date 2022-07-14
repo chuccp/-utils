@@ -13,8 +13,15 @@ func TestUn_Packet(t *testing.T) {
 		return
 	}
 	log.Print(data)
-	UnPacket(data)
+	var longHeader LongHeader
+	err = UnPacket(data,&longHeader)
+	if err != nil {
+		return 
+	}
 
-
-
+	if longHeader.IsLongHeader{
+		if longHeader.LongPacketType==packetTypeInitial{
+			UnPacketInitialPayload(&longHeader)
+		}
+	}
 }
