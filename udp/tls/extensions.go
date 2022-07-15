@@ -7,7 +7,7 @@ import (
 
 const (
 	KeyShareType uint16 = 51
-	TransportType uint16 = 51
+	TransportType uint16 = 57
 )
 
 type Extensions struct {
@@ -18,6 +18,7 @@ func (es *Extensions) SetKeyShare(KeyExchanges []byte) {
 	ks := NewKeyShare(KeyExchanges)
 	kWR:=  util.NewWriteBuffer()
 	ks.Write(kWR)
+
 	ex := NewExtension(KeyShareType, kWR.Bytes())
 	es.addExtensions(ex)
 }
@@ -48,8 +49,9 @@ func NewExtensions() *Extensions {
 
 func (es *Extensions) Write(write *util.WriteBuffer) {
 	for _, extension := range es.Extensions {
-		write.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
-			extension.Write(wr)
+		write.WriteUint16(extension.Type)
+		write.WriteUint16LengthBuff(func(wr *util.WriteBuffer) {
+			wr.WriteBytes(extension.Data)
 		})
 	}
 }
@@ -70,12 +72,6 @@ func (es *Extensions) Read(read *util.ReadBuffer) error{
 			break
 		}
 	}
-
-
-
-
-
-
 	return nil
 }
 func  ReadExtensions(read *util.ReadBuffer) (*Extensions,error){

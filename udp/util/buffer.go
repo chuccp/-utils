@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/chuccp/utils/io"
+	"log"
 )
 
 type BufferWrite interface {
@@ -45,6 +46,7 @@ func (pb *WriteBuffer) WriteVariableLengthBuff(f func(write *WriteBuffer)) {
 	wb := NewWriteBuffer()
 	f(wb)
 	data := wb.Bytes()
+	log.Print(uint32(len(data)))
 	pb.WriteVariableLength(uint32(len(data)))
 	pb.WriteBytes(data)
 }

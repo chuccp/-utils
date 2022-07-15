@@ -25,5 +25,9 @@ type SendConfig struct {
 func NewSendConfig(ConnectionId []byte)*SendConfig {
 	TLSRandom:=make([]byte,32)
 	rand.Read(TLSRandom)
-	return &SendConfig{PacketNumber: 0,Version: util.Version1,ConnectionId:ConnectionId,Token:[]byte{},TLSRandom:TLSRandom}
+
+	KeyExchanges:=make([]byte,32)
+	rand.Read(KeyExchanges)
+
+	return &SendConfig{PacketNumber: 0,Version: util.Version1,ConnectionId:ConnectionId,Token:[]byte{},TLSRandom:TLSRandom,KeyExchanges:KeyExchanges}
 }

@@ -47,7 +47,10 @@ func (ch *ClientHello) Write(write *util.WriteBuffer) {
 			ch.CipherSuites.Write(wr)
 		})
 		w.WriteUint8LengthBytes(ch.CompressionMethods)
-		w.WriteUint16LengthBuff(func(wr *util.WriteBuffer) {
+
+
+
+		w.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
 			ch.Extensions.Write(wr)
 		})
 	})
@@ -88,7 +91,7 @@ func (ch *ClientHello) Read(read *util.ReadBuffer) error {
 	if err != nil {
 		return err
 	}
-	_, exData, err := rd.ReadU16LengthBytes()
+	_, exData, err := rd.ReadVariableLengthBytes()
 	if err != nil {
 		return err
 	}
