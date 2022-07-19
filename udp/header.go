@@ -3,13 +3,13 @@ package udp
 import (
 	"github.com/chuccp/utils/udp/config"
 	"github.com/chuccp/utils/udp/util"
+	"github.com/chuccp/utils/udp/wire"
 )
 
 type LongHeader struct {
 	IsLongHeader bool
 	FixedBit     bool
-
-	LongPacketType     packetType
+	LongPacketType     wire.PacketType
 	ReservedBits       uint8
 	PacketNumberLength uint8
 
@@ -49,7 +49,7 @@ func (longHeader *LongHeader) GetFirstByte() byte {
 func (longHeader *LongHeader) SetFirstByte(b byte) {
 	longHeader.IsLongHeader = b&0x80 > 0
 	longHeader.FixedBit = b&0x40 > 0
-	longHeader.LongPacketType = packetType(b & 0x30 >> 4)
+	longHeader.LongPacketType = wire.PacketType(b & 0x30 >> 4)
 	longHeader.ReservedBits = 0x0c >> 2
 	longHeader.PacketNumberLength = b&0x03 + 1
 }
@@ -60,20 +60,20 @@ func (longHeader *LongHeader) Write(packetBuffer *util.WriteBuffer) {
 	packetBuffer.WriteBytes(longHeader.Version.ToBytes())
 	packetBuffer.WriteUint8LengthBytes(longHeader.DestinationConnectionId)
 	packetBuffer.WriteUint8LengthBytes(longHeader.SourceConnectionId)
-	if longHeader.LongPacketType == packetTypeInitial {
+	if longHeader.LongPacketType == wire.PacketTypeInitial {
 		packetBuffer.WriteVariableLengthBytes(longHeader.Token)
 		packetBuffer.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
 			wr.WriteLenUint64(longHeader.GetPacketNumberLength(), uint64(longHeader.PacketNumber))
 			wr.WriteBytes(longHeader.PacketPayload)
 		})
 	}
-	if longHeader.LongPacketType == packetTypeHandshake || longHeader.LongPacketType == packetTypeZeroRTT {
+	if longHeader.LongPacketType == wire.PacketTypeHandshake || longHeader.LongPacketType == wire.PacketTypeZeroRTT {
 		packetBuffer.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
 			wr.WriteLenUint64(longHeader.GetPacketNumberLength(), uint64(longHeader.PacketNumber))
 			wr.WriteBytes(longHeader.PacketPayload)
 		})
 	}
-	if longHeader.LongPacketType == packetTypeRetry {
+	if longHeader.LongPacketType ==wire.PacketTypeRetry {
 		packetBuffer.WriteBytes(longHeader.RetryToken)
 		packetBuffer.WriteBytes(longHeader.RetryIntegrityTag)
 	}
@@ -113,7 +113,7 @@ func (longHeader *LongHeader) Read(packetBuffer *util.ReadBuffer) error {
 }
 
 
-func NewLongHeader(longPacketType packetType, PacketPayload []byte, sendConfig *config.SendConfig) *LongHeader {
+func NewLongHeader(longPacketType wire.PacketType, PacketPayload []byte, sendConfig *config.SendConfig) *LongHeader {
 	var longHeader LongHeader
 	longHeader.LongPacketType = longPacketType
 	longHeader.IsLongHeader = true

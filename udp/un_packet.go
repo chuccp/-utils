@@ -6,10 +6,14 @@ import (
 	"github.com/chuccp/utils/udp/wire"
 )
 
-type Packet struct {
+
+
+func ParseHeader(data []byte,header *wire.Header)  {
+	fistByte := data[0]
+	header.IsLongHeader = fistByte&0x80 > 0
 }
 
-func UnPacket(data []byte, longHeader *LongHeader) error {
+func UnLongHeaderPacket(data []byte, longHeader *LongHeader) error {
 	fistByte := data[0]
 	if (fistByte & 0x80) != 0 {
 		rb := util.NewReadBuffer(data)

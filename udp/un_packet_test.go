@@ -1,6 +1,7 @@
 package udp
 
 import (
+	"github.com/chuccp/utils/udp/wire"
 	"os"
 	"testing"
 )
@@ -12,13 +13,13 @@ func TestUn_Packet(t *testing.T) {
 		return
 	}
 	var longHeader LongHeader
-	err = UnPacket(data,&longHeader)
+	err = UnLongHeaderPacket(data,&longHeader)
 	if err != nil {
 		return 
 	}
 
 	if longHeader.IsLongHeader{
-		if longHeader.LongPacketType==packetTypeInitial{
+		if longHeader.LongPacketType==wire.PacketTypeInitial{
 			UnPacketInitialPayload(&longHeader)
 		}
 	}
