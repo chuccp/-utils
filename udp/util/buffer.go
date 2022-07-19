@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/chuccp/utils/io"
-	"log"
+
 )
 
 type BufferWrite interface {
@@ -46,7 +46,6 @@ func (pb *WriteBuffer) WriteVariableLengthBuff(f func(write *WriteBuffer)) {
 	wb := NewWriteBuffer()
 	f(wb)
 	data := wb.Bytes()
-	log.Print(uint32(len(data)))
 	pb.WriteVariableLength(uint32(len(data)))
 	pb.WriteBytes(data)
 }
@@ -139,6 +138,20 @@ func (prb *ReadBuffer) ReadUint8LengthBytesBuff(f func([]byte, *ReadBuffer) erro
 		return f([]byte{}, prb)
 	}
 	readBytes, err := prb.ReadBytes(int(u8))
+	if err != nil {
+		return err
+	}
+	return f(readBytes, prb)
+}
+func (prb *ReadBuffer) ReadUint16LengthBytesBuff(f func([]byte, *ReadBuffer) error) error {
+	u16, err := prb.ReadUint16Length()
+	if err != nil {
+		return err
+	}
+	if u16 == 0 {
+		return f([]byte{}, prb)
+	}
+	readBytes, err := prb.ReadBytes(int(u16))
 	if err != nil {
 		return err
 	}

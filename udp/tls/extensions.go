@@ -11,16 +11,18 @@ const (
 )
 
 type Extensions struct {
-	Extensions []*Extension
+
+	ExtensionsMap map[uint16]*Extension
 }
 
 func (es *Extensions) SetKeyShare(KeyExchanges []byte) {
-	ks := NewKeyShare(KeyExchanges)
+
+	ks := NewKeyShare(x25519,KeyExchanges)
 	kWR:=  util.NewWriteBuffer()
 	ks.Write(kWR)
-
 	ex := NewExtension(KeyShareType, kWR.Bytes())
 	es.addExtensions(ex)
+
 }
 
 func (es *Extensions) SetTransportParameters(sendConfig *config.SendConfig) {
@@ -40,15 +42,15 @@ func (es *Extensions) SetTransportParameters(sendConfig *config.SendConfig) {
 
 
 func (es *Extensions) addExtensions(ex *Extension) {
-	es.Extensions = append(es.Extensions, ex)
+	es.ExtensionsMap[ex.Type] = ex
 }
 
 func NewExtensions() *Extensions {
-	return &Extensions{Extensions: make([]*Extension, 0)}
+	return &Extensions{ExtensionsMap: make(map[uint16]*Extension)}
 }
 
 func (es *Extensions) Write(write *util.WriteBuffer) {
-	for _, extension := range es.Extensions {
+	for _, extension := range es.ExtensionsMap {
 		write.WriteUint16(extension.Type)
 		write.WriteUint16LengthBuff(func(wr *util.WriteBuffer) {
 			wr.WriteBytes(extension.Data)
@@ -75,8 +77,8 @@ func (es *Extensions) Read(read *util.ReadBuffer) error{
 	return nil
 }
 func  ReadExtensions(read *util.ReadBuffer) (*Extensions,error){
-	var extensions Extensions
-	return &extensions,extensions.Read(read)
+	 extensions:=NewExtensions()
+	return extensions,extensions.Read(read)
 }
 type Extension struct {
 	Type   uint16

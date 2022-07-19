@@ -4,7 +4,6 @@ import (
 	"github.com/chuccp/utils/udp/tls"
 	"github.com/chuccp/utils/udp/util"
 	"github.com/chuccp/utils/udp/wire"
-	"log"
 )
 
 type Packet struct {
@@ -29,7 +28,6 @@ func UnPacket(data []byte, longHeader *LongHeader) error {
 }
 
 func UnPacketInitialPayload(longHeader *LongHeader) error {
-	log.Print(longHeader.PacketPayload)
 	rb := util.NewReadBuffer(longHeader.PacketPayload)
 	u32, err := rb.ReadU8LengthU32(longHeader.PacketNumberLength)
 	if err != nil {
@@ -66,12 +64,11 @@ func UnCryptoFramePayload(cryptoFrame *wire.CryptoFrame) error {
 		return err
 	}
 	if tls.HandshakeType(readByte) == tls.ClientHelloType {
-		hello, err := tls.ReadClientHello(rb)
+		_, err := tls.ReadClientHello(rb)
 		if err != nil {
 			return err
 		}
-		log.Print(hello)
+		//log.Print(hello)
 	}
-
 	return err
 }

@@ -6,7 +6,6 @@ import (
 	"github.com/chuccp/utils/udp/tls"
 	"github.com/chuccp/utils/udp/util"
 	"github.com/chuccp/utils/udp/wire"
-	"log"
 	"testing"
 )
 
@@ -26,7 +25,6 @@ func TestInitial(t *testing.T) {
 	cryptoFrame.Write(cryptoFrameWb)
 	head := NewLongHeader(packetTypeInitial, cryptoFrameWb.Bytes(), sc)
 	head.Write(wb)
-	log.Print(wb.Bytes())
 	newFile, err := file.NewFile("data.bb")
 	if err != nil {
 		t.Log(err)
