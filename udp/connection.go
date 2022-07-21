@@ -47,7 +47,7 @@ func (s *baseServer) parsePacket(data []byte, remote *net.UDPAddr) (*ReceiveConn
 	}
 	if header.IsLongHeader {
 		if header.PacketType == wire.PacketTypeInitial {
-			receivePacket := NewReceivePacket(&currentTime, data, &header)
+			receivePacket := wire.NewReceivePacket(&currentTime, data, &header)
 			rc, flag := s.store.Load(remote)
 			if flag {
 				rc.push(receivePacket)
