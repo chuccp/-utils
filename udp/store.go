@@ -9,18 +9,18 @@ type Store struct {
 	connMap  *sync.Map
 }
 
-func (s *Store) Load(addr net.Addr)(*RawConn,bool)  {
+func (s *Store) Load(addr net.Addr)(*ReceiveConn,bool)  {
 	 k:=addr.String()
 	v,ok:=s.connMap.Load(k)
 	if ok{
-		return v.(*RawConn),true
+		return v.(*ReceiveConn),true
 	}else{
-		cc:= newRawConn()
+		cc:= newReceiveConn()
 		actual,loaded:=s.connMap.LoadOrStore(k,cc)
 		if loaded{
-			return  actual.(*RawConn),true
+			return  actual.(*ReceiveConn),true
 		}else{
-			return  v.(*RawConn),false
+			return  v.(*ReceiveConn),false
 		}
 	}
 }

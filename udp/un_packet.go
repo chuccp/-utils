@@ -6,32 +6,38 @@ import (
 	"github.com/chuccp/utils/udp/wire"
 )
 
-
-
-func ParseHeader(data []byte,header *wire.Header)  {
+func ParseHeader(data []byte, header *wire.Header)error {
 	fistByte := data[0]
 	header.IsLongHeader = fistByte&0x80 > 0
-}
-
-func UnLongHeaderPacket(data []byte, longHeader *LongHeader) error {
-	fistByte := data[0]
-	if (fistByte & 0x80) != 0 {
-		rb := util.NewReadBuffer(data)
-		err := longHeader.Read(rb)
+	if header.IsLongHeader {
+		err := header.ParseLongHeader(data)
 		if err != nil {
 			return err
-		}
-		if longHeader.LongPacketType == packetTypeInitial {
-			err := UnPacketInitialPayload(longHeader)
-			if err != nil {
-				return err
-			}
 		}
 	}
 	return nil
 }
 
-func UnPacketInitialPayload(longHeader *LongHeader) error {
+
+//func UnLongHeaderPacket(data []byte, longHeader *wire.Header) error {
+//	fistByte := data[0]
+//	if (fistByte & 0x80) != 0 {
+//		rb := util.NewReadBuffer(data)
+//		err := longHeader.Read(rb)
+//		if err != nil {
+//			return err
+//		}
+//		if longHeader.PacketType == wire.PacketTypeInitial {
+//			err := UnPacketInitialPayload(longHeader)
+//			if err != nil {
+//				return err
+//			}
+//		}
+//	}
+//	return nil
+//}
+
+func UnPacketInitialPayload(longHeader *wire.Header) error {
 	rb := util.NewReadBuffer(longHeader.PacketPayload)
 	u32, err := rb.ReadU8LengthU32(longHeader.PacketNumberLength)
 	if err != nil {
@@ -45,7 +51,7 @@ func UnPacketInitialPayload(longHeader *LongHeader) error {
 		}
 		if readByte == 0x6 {
 
-			cryptoFrame,err := wire.ReadCryptoFrame(rb)
+			cryptoFrame, err := wire.ReadCryptoFrame(rb)
 			if err != nil {
 				return err
 			}

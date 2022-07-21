@@ -5,6 +5,10 @@ import (
 	"github.com/chuccp/utils/udp/util"
 )
 
+type ReceiveConfig struct {
+
+}
+
 type SendConfig struct {
 	PacketNumber                   util.PacketNumber
 	Version                        util.VersionNumber
