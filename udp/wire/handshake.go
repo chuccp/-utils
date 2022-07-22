@@ -32,7 +32,10 @@ func (serverHandshake *ServerHandshake) Handle(packet *ReceivePacket) error {
 	if cryptoFrame.Data[0]==0x01{
 
 		var ch  tls.ClientHello
-		tls.UnClientHelloHandshake(cryptoFrame.Data,&ch)
+		err := tls.UnClientHelloHandshake(cryptoFrame.Data, &ch)
+		if err != nil {
+			return err
+		}
 
 		return nil
 	}
