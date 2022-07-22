@@ -11,7 +11,6 @@ const (
 )
 
 type Extensions struct {
-
 	ExtensionsMap map[uint16]*Extension
 }
 
@@ -22,11 +21,15 @@ func (es *Extensions) SetKeyShare(KeyExchanges []byte) {
 	ex := NewExtension(KeyShareType, kWR.Bytes())
 	es.addExtensions(ex)
 }
-func (es *Extensions)GetKeyShare()*ClientKeyShare{
+func (es *Extensions)GetKeyShare(clientKeyShare *ClientKeyShare) error {
 	extension := es.ExtensionsMap[KeyShareType]
-
-
-
+	if extension==nil{
+		return util.FormatError
+	}
+	err := UnPacketClientKeyShare(extension.Data, clientKeyShare)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

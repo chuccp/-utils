@@ -15,7 +15,7 @@ const (
 type ServerHandshake struct {
 	HandshakeStatus HandshakeStatusType
 	ClientRandom []byte
-	ShareKey []byte
+	KeyShare *tls.ClientKeyShare
 }
 
 func NewServerHandshake() *ServerHandshake {
@@ -38,9 +38,12 @@ func (serverHandshake *ServerHandshake) Handle(packet *ReceivePacket) error {
 			return err
 		}
 		serverHandshake.ClientRandom = ch.Random
-		serverHandshake.ShareKey = ch.Extensions.SetKeyShare()
-
-
+		var clientKeyShare tls.ClientKeyShare
+		err = ch.Extensions.GetKeyShare(&clientKeyShare)
+		if err!=nil{
+			return err
+		}
+		serverHandshake.KeyShare  = &clientKeyShare
 		return nil
 	}
 	return util.FormatError

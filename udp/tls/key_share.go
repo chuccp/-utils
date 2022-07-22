@@ -3,6 +3,7 @@ package tls
 import "github.com/chuccp/utils/udp/util"
 
 type GroupType uint16
+
 const (
 	x25519 GroupType = 29
 )
@@ -12,7 +13,7 @@ type ClientKeyShare struct {
 	KeyExchanges []byte
 }
 
-func NewKeyShare(groupType GroupType,KeyExchanges []byte) *ClientKeyShare {
+func NewKeyShare(groupType GroupType, KeyExchanges []byte) *ClientKeyShare {
 	return &ClientKeyShare{Group: groupType, KeyExchanges: KeyExchanges}
 }
 func (kse *ClientKeyShare) Write(write *util.WriteBuffer) {
@@ -41,7 +42,21 @@ func (kse *ClientKeyShare) Read(read *util.ReadBuffer) error {
 	return nil
 }
 
-func UnPacketClientKeyShare(data []byte,clientKeyShare *ClientKeyShare)  {
-
-	
+func UnPacketClientKeyShare(data []byte, clientKeyShare *ClientKeyShare) error {
+	rb := util.NewReadBuffer(data)
+	u16, err := rb.ReadUint16Length()
+	if err != nil {
+		return err
+	}
+	data, err = rb.ReadBytes(int(u16))
+	if err != nil {
+		return err
+	}
+	clientKeyShare.Group = GroupType(util.BTU16(data[0:2]))
+	u16, err = rb.ReadUint16Length()
+	if err != nil {
+		return err
+	}
+	clientKeyShare.KeyExchanges,err = rb.ReadBytes(int(u16))
+	return err
 }

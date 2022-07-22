@@ -13,3 +13,7 @@ func VariableLengthToBytes(length uint32)[]byte  {
 		return []byte{byte(length>>24)|0xc0,byte(length>>16),byte(length>>8),byte(length)}
 	}
 }
+
+func BTU16(ds []byte) uint16 {
+	return uint16(ds[0])<<8|uint16(ds[1])
+}
