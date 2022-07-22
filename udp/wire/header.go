@@ -25,10 +25,12 @@ type Header struct {
 	ReservedBits            uint8
 	PacketNumberLength      uint8
 	Token                   []byte
-	PacketNumber            util.PacketNumber
-	PacketPayload           []byte
 	RetryToken              []byte
 	RetryIntegrityTag       []byte
+	ParsedLen uint32
+	Length uint32
+	PacketNumber            util.PacketNumber
+	PacketPayload           []byte
 }
 
 func (header *Header) GetPacketNumberLength() uint8 {
@@ -106,10 +108,20 @@ func (header *Header) ParseLongHeader(oob []byte) error {
 		return err
 	}
 	header.Token = data
-	_, data, err = packetBuffer.ReadVariableLengthBytes()
+	header.Length, data, err = packetBuffer.ReadVariableLengthBytes()
 	if err != nil {
 		return err
 	}
-	header.PacketPayload = data
+	header.ParsedLen = uint32(packetBuffer.Offset())
 	return nil
+}
+func (header *Header) ParseExLongHeader(oob []byte)  error {
+	packetBuffer := util.NewReadBuffer(oob[header.ParsedLen:header.ParsedLen+header.Length])
+	u32, err := packetBuffer.ReadU8LengthU32(header.PacketNumberLength)
+	if err!=nil{
+		return err
+	}
+	header.PacketNumber = util.PacketNumber(u32)
+	header.PacketPayload,err = packetBuffer.ReadU32Bytes(header.Length-uint32(header.PacketNumberLength))
+	return err
 }

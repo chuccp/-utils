@@ -7,22 +7,13 @@ import (
 
 func UnPacketInitialPayload(header *Header,cryptoFrame *CryptoFrame) error {
 	rb := util.NewReadBuffer(header.PacketPayload)
-	u32, err := rb.ReadU8LengthU32(header.PacketNumberLength)
-	if err != nil {
-		return err
-	}
-	header.PacketNumber = util.PacketNumber(u32)
 	for {
 		readByte, err := rb.ReadByte()
 		if err != nil {
 			return err
 		}
 		if readByte == 0x6 {
-			cryptoFrame, err := ReadCryptoFrame(rb)
-			if err != nil {
-				return err
-			}
-			err = UnCryptoFramePayload(cryptoFrame)
+			err =cryptoFrame.Read(rb)
 			if err != nil {
 				return err
 			}
