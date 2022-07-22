@@ -14,6 +14,8 @@ const (
 
 type ServerHandshake struct {
 	HandshakeStatus HandshakeStatusType
+	ClientRandom []byte
+	ShareKey []byte
 }
 
 func NewServerHandshake() *ServerHandshake {
@@ -30,12 +32,14 @@ func (serverHandshake *ServerHandshake) Handle(packet *ReceivePacket) error {
 		return err
 	}
 	if cryptoFrame.Data[0]==0x01{
-
 		var ch  tls.ClientHello
-		err := tls.UnClientHelloHandshake(cryptoFrame.Data, &ch)
+		err := tls.UnPacketClientHelloHandshake(cryptoFrame.Data, &ch)
 		if err != nil {
 			return err
 		}
+		serverHandshake.ClientRandom = ch.Random
+		serverHandshake.ShareKey = ch.Extensions.SetKeyShare()
+
 
 		return nil
 	}

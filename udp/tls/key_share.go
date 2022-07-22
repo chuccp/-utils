@@ -40,3 +40,8 @@ func (kse *ClientKeyShare) Read(read *util.ReadBuffer) error {
 	}
 	return nil
 }
+
+func UnPacketClientKeyShare(data []byte,clientKeyShare *ClientKeyShare)  {
+
+	
+}

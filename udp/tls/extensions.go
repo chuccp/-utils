@@ -16,14 +16,20 @@ type Extensions struct {
 }
 
 func (es *Extensions) SetKeyShare(KeyExchanges []byte) {
-
 	ks := NewKeyShare(x25519,KeyExchanges)
 	kWR:=  util.NewWriteBuffer()
 	ks.Write(kWR)
 	ex := NewExtension(KeyShareType, kWR.Bytes())
 	es.addExtensions(ex)
-
 }
+func (es *Extensions)GetKeyShare()*ClientKeyShare{
+	extension := es.ExtensionsMap[KeyShareType]
+
+
+
+	return nil
+}
+
 
 func (es *Extensions) SetTransportParameters(sendConfig *config.SendConfig) {
 	ntp:=NewTransportParameters()
