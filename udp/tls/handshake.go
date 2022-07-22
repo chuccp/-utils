@@ -103,6 +103,12 @@ func (ch *ClientHello) Read(read *util.ReadBuffer) error {
 	return nil
 }
 
+func UnClientHelloHandshake(data []byte,ch  *ClientHello)error{
+
+	return nil
+}
+
+
 func ReadClientHello(read *util.ReadBuffer) (*ClientHello, error) {
 	var ch ClientHello
 	return &ch, ch.Read(read)
