@@ -129,7 +129,7 @@ func (queue *Queue) Dequeue(ctx context.Context) (value interface{}, num int32, 
 			go func() {
 				fa := op.wait()
 				queue.lock.Lock()
-				if queue.waitNum > 0 {
+				if !fa && queue.waitNum > 0 {
 					queue.waitNum--
 					queue.lock.Unlock()
 					queue.ch <- !fa
