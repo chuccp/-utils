@@ -1,33 +1,29 @@
 package queue
 
 import (
-	"log"
+	"context"
 	"testing"
 	"time"
 )
 
 func TestName(t *testing.T) {
 
-	lite:=NewLiteQueue(3)
+	lite:=NewQueue()
+
 
 	go func() {
 		for{
-			time.Sleep(time.Second)
-			v,num:=lite.Poll()
-			log.Println(v,num)
-
+			time.Sleep(time.Second*2)
+			lite.Offer("123")
 		}
 	}()
 
-	lite.Offer("45")
-	lite.Offer("12364456")
-	t.Log("~~~~~~")
-	lite.Offer("123464434456")
-	t.Log("~~~~~~")
-	lite.Offer("123465656")
-	t.Log("~~~~~~")
-	lite.Offer("123433356")
-	t.Log("~~~~~~")
-	time.Sleep(time.Hour)
+
+	for{
+		ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
+		v,num,close := lite.Dequeue(ctx)
+		t.Log(v,num,"close:",close)
+	}
+
 
 }
