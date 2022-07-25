@@ -113,19 +113,15 @@ func freeTimer(timer *timer) {
 
 type operate struct {
 	ctx   context.Context
-	isEnd chan bool
 }
 
 func newOperate(ctx context.Context) *operate {
-	return &operate{ctx: ctx, isEnd: make(chan bool)}
+	return &operate{ctx: ctx}
 }
 func (op *operate) wait() bool {
-
 	select {
 	case <-op.ctx.Done():
 		return true
-	case <-op.isEnd:
-		return false
 	}
 	return false
 }
@@ -135,7 +131,7 @@ func (op *operate) isClose() bool {
 
 var poolOperate = &sync.Pool{
 	New: func() interface{} {
-		return &operate{isEnd: make(chan bool)}
+		return &operate{}
 	},
 }
 

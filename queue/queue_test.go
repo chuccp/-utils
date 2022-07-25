@@ -20,8 +20,11 @@ func TestName(t *testing.T) {
 
 
 	for{
-		ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
+		ctx,  CancelFunc:= context.WithTimeout(context.Background(), time.Second*10)
 		v,num,close := lite.Dequeue(ctx)
+		if !close{
+			CancelFunc()
+		}
 		t.Log(v,num,"close:",close)
 	}
 

@@ -103,13 +103,14 @@ func (queue *Queue) readGtOne() (value interface{}, num int32, isLast bool) {
 }
 
 func (queue *Queue) Dequeue(ctx context.Context) (value interface{}, num int32, colse bool) {
-
+	var hasReturn = false
 	for {
 		queue.lock.Lock()
 		if queue.num > 0 {
 			if queue.num == 1 {
 				value, num = queue.readOne()
 				queue.lock.Unlock()
+				hasReturn = true
 				return
 			} else {
 				queue.lock.Unlock()
@@ -119,6 +120,7 @@ func (queue *Queue) Dequeue(ctx context.Context) (value interface{}, num int32, 
 					queue.rLock.Unlock()
 				} else {
 					queue.rLock.Unlock()
+					hasReturn = true
 					return val, n, false
 				}
 			}
@@ -128,8 +130,11 @@ func (queue *Queue) Dequeue(ctx context.Context) (value interface{}, num int32, 
 			var op = getOperate(ctx)
 			go func() {
 				fa := op.wait()
+				if hasReturn {
+					return
+				}
 				queue.lock.Lock()
-				if !fa && queue.waitNum > 0 {
+				if queue.waitNum > 0 {
 					queue.waitNum--
 					queue.lock.Unlock()
 					queue.ch <- !fa
@@ -140,6 +145,7 @@ func (queue *Queue) Dequeue(ctx context.Context) (value interface{}, num int32, 
 			flag := <-queue.ch
 			freeOperate(op)
 			if !flag {
+				hasReturn = true
 				return nil, 0, true
 			}
 		}
