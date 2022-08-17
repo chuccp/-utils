@@ -111,7 +111,7 @@ func (queue *Queue) Dequeue(ctx context.Context) (value interface{}, num int32, 
 				value, num = queue.readOne()
 				queue.lock.Unlock()
 				hasReturn = true
-				return
+				return value,num,false
 			} else {
 				queue.lock.Unlock()
 				queue.rLock.Lock()
