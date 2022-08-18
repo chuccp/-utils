@@ -102,7 +102,7 @@ func (queue *Queue) readGtOne() (value interface{}, num int32, isLast bool) {
 	return value, num, false
 }
 
-func (queue *Queue) Dequeue(ctx context.Context) (value interface{}, num int32, colse bool) {
+func (queue *Queue) Dequeue(ctx context.Context) (value interface{}, num int32, cols bool) {
 	var hasReturn = false
 	for {
 		queue.lock.Lock()
