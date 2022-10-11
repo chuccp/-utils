@@ -26,17 +26,17 @@ type ClientHello struct {
 	Extensions               *Extensions
 }
 
-func NewClientHello(sendConfig *config.SendConfig) *ClientHello {
-
-	Extensions := NewExtensions()
-	Extensions.SetKeyShare(sendConfig.KeyExchanges)
-	Extensions.SetTransportParameters(sendConfig)
-
+func CreateClientHello(sendConfig *config.SendConfig) *ClientHello {
+	Extensions := CreateExtensions(sendConfig)
 	return &ClientHello{HandshakeType: 1, Version: []byte{03, 07},
 		Random: sendConfig.TLSRandom, SessionId: []byte{}, CompressionMethods: []byte{0},
 		CipherSuites: NewCipherSuites(), Extensions: Extensions}
 }
-
+func (ch *ClientHello) Bytes() []byte {
+	clientHelloWb := util.NewWriteBuffer()
+	ch.Write(clientHelloWb)
+	return clientHelloWb.Bytes()
+}
 func (ch *ClientHello) Write(write *util.WriteBuffer) {
 	write.WriteByte(byte(ch.HandshakeType))
 	write.WriteUint24LengthBuff(func(w *util.WriteBuffer) {
@@ -47,8 +47,6 @@ func (ch *ClientHello) Write(write *util.WriteBuffer) {
 			ch.CipherSuites.Write(wr)
 		})
 		w.WriteUint8LengthBytes(ch.CompressionMethods)
-
-
 
 		w.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
 			ch.Extensions.Write(wr)
@@ -103,7 +101,7 @@ func (ch *ClientHello) Read(read *util.ReadBuffer) error {
 	return nil
 }
 
-func UnPacketClientHelloHandshake(data []byte,ch  *ClientHello)error{
-	rd:=util.NewReadBuffer(data[1:])
+func UnPacketClientHelloHandshake(data []byte, ch *ClientHello) error {
+	rd := util.NewReadBuffer(data[1:])
 	return ch.Read(rd)
 }

@@ -1,6 +1,7 @@
 package wire
 
 import (
+	"github.com/chuccp/utils/udp/config"
 	"github.com/chuccp/utils/udp/util"
 )
 
@@ -27,10 +28,25 @@ type Header struct {
 	Token                   []byte
 	RetryToken              []byte
 	RetryIntegrityTag       []byte
-	ParsedLen uint32
-	Length uint32
+	ParsedLen               uint32
+	Length                  uint32
 	PacketNumber            util.PacketNumber
 	PacketPayload           []byte
+}
+
+func CreateInitialLongHeader(data []byte, sendConfig *config.SendConfig) *Header {
+	header := &Header{}
+	header.IsLongHeader = true
+	header.FixedBit = false
+	header.PacketType = PacketTypeInitial
+	header.ReservedBits = 2
+	header.PacketNumberLength = sendConfig.PacketNumber.GetPacketNumberLength()
+	header.DestinationConnectionId = []byte{}
+	header.SourceConnectionId = []byte{}
+	header.Token = []byte{}
+	header.PacketNumber = sendConfig.PacketNumber
+	header.PacketPayload = data
+	return header
 }
 
 func (header *Header) GetPacketNumberLength() uint8 {
@@ -49,7 +65,7 @@ func (header *Header) GetFirstByte() byte {
 	b = b | (header.PacketNumberLength - 1)
 	return b
 }
-func (header *Header) SetFirstByte(b byte) {
+func (header *Header) parseFirstByte(b byte) {
 	header.IsLongHeader = b&0x80 > 0
 	header.FixedBit = b&0x40 > 0
 	header.PacketType = PacketType(b & 0x30 >> 4)
@@ -87,7 +103,7 @@ func (header *Header) ParseLongHeader(oob []byte) error {
 	if err != nil {
 		return err
 	}
-	header.SetFirstByte(readByte)
+	header.parseFirstByte(readByte)
 	u32, err := packetBuffer.Read4U32()
 	if err != nil {
 		return err
@@ -115,13 +131,19 @@ func (header *Header) ParseLongHeader(oob []byte) error {
 	header.ParsedLen = uint32(packetBuffer.Offset())
 	return nil
 }
-func (header *Header) ParseExLongHeader(oob []byte)  error {
-	packetBuffer := util.NewReadBuffer(oob[header.ParsedLen:header.ParsedLen+header.Length])
+func (header *Header) ParseExLongHeader(oob []byte) error {
+	packetBuffer := util.NewReadBuffer(oob[header.ParsedLen : header.ParsedLen+header.Length])
 	u32, err := packetBuffer.ReadU8LengthU32(header.PacketNumberLength)
-	if err!=nil{
+	if err != nil {
 		return err
 	}
 	header.PacketNumber = util.PacketNumber(u32)
-	header.PacketPayload,err = packetBuffer.ReadU32Bytes(header.Length-uint32(header.PacketNumberLength))
+	header.PacketPayload, err = packetBuffer.ReadU32Bytes(header.Length - uint32(header.PacketNumberLength))
 	return err
+}
+
+func (header *Header) Bytes() []byte {
+	write := util.NewWriteBuffer()
+	header.Write(write)
+	return write.Bytes()
 }

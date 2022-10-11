@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	KeyShareType uint16 = 51
+	KeyShareType  uint16 = 51
 	TransportType uint16 = 57
 )
 
@@ -15,15 +15,15 @@ type Extensions struct {
 }
 
 func (es *Extensions) SetKeyShare(KeyExchanges []byte) {
-	ks := NewKeyShare(x25519,KeyExchanges)
-	kWR:=  util.NewWriteBuffer()
+	ks := NewKeyShare(x25519, KeyExchanges)
+	kWR := util.NewWriteBuffer()
 	ks.Write(kWR)
 	ex := NewExtension(KeyShareType, kWR.Bytes())
 	es.addExtensions(ex)
 }
-func (es *Extensions)GetKeyShare(clientKeyShare *ClientKeyShare) error {
+func (es *Extensions) GetKeyShare(clientKeyShare *ClientKeyShare) error {
 	extension := es.ExtensionsMap[KeyShareType]
-	if extension==nil{
+	if extension == nil {
 		return util.FormatError
 	}
 	err := UnPacketClientKeyShare(extension.Data, clientKeyShare)
@@ -33,22 +33,13 @@ func (es *Extensions)GetKeyShare(clientKeyShare *ClientKeyShare) error {
 	return nil
 }
 
-
-func (es *Extensions) SetTransportParameters(sendConfig *config.SendConfig) {
-	ntp:=NewTransportParameters()
-	ntp.SetValue(MaxUdpPayloadSizeType,sendConfig.MaxUdpPayloadSize)
-	ntp.SetValue(InitialMaxStreamDataBidiRemoteType,sendConfig.InitialMaxStreamDataBidiRemote)
-	ntp.SetValue(InitialMaxStreamDataBidiLocalType,sendConfig.InitialMaxStreamDataBidiLocal)
-	ntp.SetValue(InitialMaxDataType,sendConfig.InitialMaxData)
-	ntp.SetValue(MaxIdleTimeout,sendConfig.MaxIdleTimeout)
-	ntp.SetValue(InitialMaxStreamsBidi,sendConfig.InitialMaxStreamsBidi)
-	ntp.SetValue(InitialMaxStreamsUni,sendConfig.InitialMaxStreamsUni)
-	ntpWR:=  util.NewWriteBuffer()
+func (es *Extensions) setTransportParameters(sendConfig *config.SendConfig) {
+	ntp := NewTransportParameters(sendConfig)
+	ntpWR := util.NewWriteBuffer()
 	ntp.Write(ntpWR)
 	ex := NewExtension(TransportType, ntpWR.Bytes())
 	es.addExtensions(ex)
 }
-
 
 func (es *Extensions) addExtensions(ex *Extension) {
 	es.ExtensionsMap[ex.Type] = ex
@@ -56,6 +47,12 @@ func (es *Extensions) addExtensions(ex *Extension) {
 
 func NewExtensions() *Extensions {
 	return &Extensions{ExtensionsMap: make(map[uint16]*Extension)}
+}
+func CreateExtensions(sendConfig *config.SendConfig) *Extensions {
+	ex := NewExtensions()
+	ex.SetKeyShare(sendConfig.KeyExchanges)
+	ex.setTransportParameters(sendConfig)
+	return ex
 }
 
 func (es *Extensions) Write(write *util.WriteBuffer) {
@@ -66,9 +63,9 @@ func (es *Extensions) Write(write *util.WriteBuffer) {
 		})
 	}
 }
-func (es *Extensions) Read(read *util.ReadBuffer) error{
+func (es *Extensions) Read(read *util.ReadBuffer) error {
 
-	for{
+	for {
 		ExtensionType, err := read.ReadUint16Length()
 		if err != nil {
 			return err
@@ -77,20 +74,21 @@ func (es *Extensions) Read(read *util.ReadBuffer) error{
 		if err != nil {
 			return err
 		}
-		ex:=NewExtension(ExtensionType,data)
+		ex := NewExtension(ExtensionType, data)
 		es.addExtensions(ex)
-		if read.Buffered()==0{
+		if read.Buffered() == 0 {
 			break
 		}
 	}
 	return nil
 }
-func  ReadExtensions(read *util.ReadBuffer) (*Extensions,error){
-	 extensions:=NewExtensions()
-	return extensions,extensions.Read(read)
+func ReadExtensions(read *util.ReadBuffer) (*Extensions, error) {
+	extensions := NewExtensions()
+	return extensions, extensions.Read(read)
 }
+
 type Extension struct {
-	Type   uint16
+	Type uint16
 	Data []byte
 }
 

@@ -9,7 +9,7 @@ type CryptoFrame struct {
 	Data   []byte
 }
 
-func NewCryptoFrame(data []byte) *CryptoFrame {
+func CreateCryptoFrame(data []byte) *CryptoFrame {
 	return &CryptoFrame{Data: data, Offset: 0}
 }
 
@@ -20,6 +20,17 @@ func (cryptoFrame *CryptoFrame) Write(write *util.WriteBuffer) {
 		wr.WriteBytes(cryptoFrame.Data)
 	})
 }
+
+func (cryptoFrame *CryptoFrame) Bytes() []byte {
+	write := util.NewWriteBuffer()
+	write.WriteByte(CryptoType)
+	write.WriteVariableLength(uint32(cryptoFrame.Offset))
+	write.WriteVariableLengthBuff(func(wr *util.WriteBuffer) {
+		wr.WriteBytes(cryptoFrame.Data)
+	})
+	return write.Bytes()
+}
+
 func (cryptoFrame *CryptoFrame) Read(read *util.ReadBuffer) error {
 	length, err := read.ReadVariableLength()
 	if err != nil {
@@ -33,7 +44,7 @@ func (cryptoFrame *CryptoFrame) Read(read *util.ReadBuffer) error {
 	cryptoFrame.Data = data
 	return nil
 }
-func ReadCryptoFrame(read *util.ReadBuffer) (*CryptoFrame,error) {
+func ReadCryptoFrame(read *util.ReadBuffer) (*CryptoFrame, error) {
 	var cryptoFrame CryptoFrame
-	return &cryptoFrame,cryptoFrame.Read(read)
+	return &cryptoFrame, cryptoFrame.Read(read)
 }
