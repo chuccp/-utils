@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -130,6 +131,7 @@ func (queue *Queue) Dequeue(ctx context.Context) (value interface{}, num int32, 
 			var op = getOperate(ctx)
 			go func() {
 				fa := op.wait()
+				log.Print("=================",fa)
 				if hasReturn {
 					return
 				}
@@ -143,6 +145,7 @@ func (queue *Queue) Dequeue(ctx context.Context) (value interface{}, num int32, 
 				}
 			}()
 			flag := <-queue.ch
+			log.Print("+++++++++++++++",flag)
 			freeOperate(op)
 			if !flag {
 				hasReturn = true

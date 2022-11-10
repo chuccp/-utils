@@ -33,7 +33,7 @@ func (es *Extensions) GetKeyShare(clientKeyShare *ClientKeyShare) error {
 	return nil
 }
 
-func (es *Extensions) setTransportParameters(sendConfig *config.SendConfig) {
+func (es *Extensions) setTransportParameters(sendConfig *config.Config) {
 	ntp := NewTransportParameters(sendConfig)
 	ntpWR := util.NewWriteBuffer()
 	ntp.Write(ntpWR)
@@ -48,7 +48,7 @@ func (es *Extensions) addExtensions(ex *Extension) {
 func NewExtensions() *Extensions {
 	return &Extensions{ExtensionsMap: make(map[uint16]*Extension)}
 }
-func CreateExtensions(sendConfig *config.SendConfig) *Extensions {
+func CreateExtensions(sendConfig *config.Config) *Extensions {
 	ex := NewExtensions()
 	ex.SetKeyShare(sendConfig.KeyExchanges)
 	ex.setTransportParameters(sendConfig)

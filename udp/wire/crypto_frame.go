@@ -13,6 +13,23 @@ func CreateCryptoFrame(data []byte) *CryptoFrame {
 	return &CryptoFrame{Data: data, Offset: 0}
 }
 
+func ParseCryptoFrame(payload []byte) *CryptoFrame {
+	readBuffer := util.NewReadBuffer(payload)
+	cryptoFrame := &CryptoFrame{}
+	_, _ = readBuffer.ReadByte()
+
+	length, err := readBuffer.ReadVariableLength()
+	if err != nil {
+		return nil
+	}
+	cryptoFrame.Offset = uint64(length)
+	_, cryptoFrame.Data, err = readBuffer.ReadVariableLengthBytes()
+	if err != nil {
+		return nil
+	}
+	return cryptoFrame
+}
+
 func (cryptoFrame *CryptoFrame) Write(write *util.WriteBuffer) {
 	write.WriteByte(CryptoType)
 	write.WriteVariableLength(uint32(cryptoFrame.Offset))

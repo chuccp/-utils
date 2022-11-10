@@ -19,7 +19,7 @@ type TransportParameters struct {
 	TransportParameterMap map[byte]*TransportParameter
 }
 
-func NewTransportParameters(sendConfig *config.SendConfig) *TransportParameters {
+func NewTransportParameters(sendConfig *config.Config) *TransportParameters {
 	transportParameterMap := make(map[byte]*TransportParameter)
 	transportParameters := &TransportParameters{TransportParameterMap: transportParameterMap}
 	transportParameters.SetValue(MaxUdpPayloadSizeType, sendConfig.MaxUdpPayloadSize)

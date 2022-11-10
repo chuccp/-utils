@@ -34,7 +34,7 @@ type Header struct {
 	PacketPayload           []byte
 }
 
-func CreateInitialLongHeader(data []byte, sendConfig *config.SendConfig) *Header {
+func CreateInitialLongHeader(payload []byte, sendConfig *config.Config) *Header {
 	header := &Header{}
 	header.IsLongHeader = true
 	header.FixedBit = false
@@ -45,7 +45,23 @@ func CreateInitialLongHeader(data []byte, sendConfig *config.SendConfig) *Header
 	header.SourceConnectionId = []byte{}
 	header.Token = []byte{}
 	header.PacketNumber = sendConfig.PacketNumber
-	header.PacketPayload = data
+	header.PacketPayload = payload
+	return header
+}
+
+func ParseInitialLongHeader(data []byte, sendConfig *config.Config) *Header {
+	header := &Header{}
+
+	err := header.ParseLongHeader(data)
+	if err != nil {
+		return nil
+	}
+	err = header.ParseExLongHeader(data)
+	if err != nil {
+		return nil
+	}
+	var payload = header.PacketPayload
+
 	return header
 }
 

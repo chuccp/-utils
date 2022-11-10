@@ -26,7 +26,7 @@ type ClientHello struct {
 	Extensions               *Extensions
 }
 
-func CreateClientHello(sendConfig *config.SendConfig) *ClientHello {
+func CreateClientHello(sendConfig *config.Config) *ClientHello {
 	Extensions := CreateExtensions(sendConfig)
 	return &ClientHello{HandshakeType: 1, Version: []byte{03, 07},
 		Random: sendConfig.TLSRandom, SessionId: []byte{}, CompressionMethods: []byte{0},
